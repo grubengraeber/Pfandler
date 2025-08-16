@@ -221,5 +221,6 @@
   "returnHere": "Return Here",
   "storesInArea": "{count} stores in this area",
   "tapStoreToViewDetails": "Tap a store to view details",
-  "couldNotOpenMaps": "Could not open maps application"
+  "couldNotOpenMaps": "Could not open maps application",
+  "syncingWithServer": "Syncing with server..."
 }

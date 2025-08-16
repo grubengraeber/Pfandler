@@ -214,5 +214,6 @@
   "returnHere": "Hier zurückgeben",
   "storesInArea": "{count} Geschäfte in diesem Bereich",
   "tapStoreToViewDetails": "Tippen Sie auf ein Geschäft, um Details anzuzeigen",
-  "couldNotOpenMaps": "Karten-App konnte nicht geöffnet werden"
+  "couldNotOpenMaps": "Karten-App konnte nicht geöffnet werden",
+  "syncingWithServer": "Synchronisierung mit Server..."
 }
