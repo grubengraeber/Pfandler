@@ -737,37 +737,43 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildClickableLegendItem(
-                      context,
-                      depositData[0],
-                      0,
-                      _selectedDepositTypeIndex == 0,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    _buildClickableLegendItem(
-                      context,
-                      depositData[1],
-                      1,
-                      _selectedDepositTypeIndex == 1,
-                    ),
+                    if (depositData.isNotEmpty)
+                      _buildClickableLegendItem(
+                        context,
+                        depositData[0],
+                        0,
+                        _selectedDepositTypeIndex == 0,
+                      ),
+                    if (depositData.length > 1) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      _buildClickableLegendItem(
+                        context,
+                        depositData[1],
+                        1,
+                        _selectedDepositTypeIndex == 1,
+                      ),
+                    ],
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildClickableLegendItem(
-                      context,
-                      depositData[2],
-                      2,
-                      _selectedDepositTypeIndex == 2,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    _buildClickableLegendItem(
-                      context,
-                      depositData[3],
-                      3,
-                      _selectedDepositTypeIndex == 3,
-                    ),
+                    if (depositData.length > 2)
+                      _buildClickableLegendItem(
+                        context,
+                        depositData[2],
+                        2,
+                        _selectedDepositTypeIndex == 2,
+                      ),
+                    if (depositData.length > 3) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      _buildClickableLegendItem(
+                        context,
+                        depositData[3],
+                        3,
+                        _selectedDepositTypeIndex == 3,
+                      ),
+                    ],
                   ],
                 ),
               ],

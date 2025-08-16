@@ -389,6 +389,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  // Convenience methods for sign in/sign up
+  Future<void> signUp(String email, String password) async {
+    return registerWithEmail(email, password);
+  }
+
+  Future<void> signIn(String email, String password) async {
+    return loginWithEmail(email, password);
+  }
+
   Future<void> logout() async {
     await _authBox.clear();
     state = AuthState();

@@ -73,13 +73,19 @@ class _LaunchScreenState extends ConsumerState<LaunchScreen>
 
   void _startAnimations() async {
     // Start logo fade and scale
-    _fadeController.forward();
+    if (mounted) {
+      _fadeController.forward();
+    }
     await Future.delayed(const Duration(milliseconds: 200));
-    _scaleController.forward();
+    if (mounted) {
+      _scaleController.forward();
+    }
     
     // Start text slide
     await Future.delayed(const Duration(milliseconds: 300));
-    _slideController.forward();
+    if (mounted) {
+      _slideController.forward();
+    }
     
     // Check authentication after animations complete
     await Future.delayed(const Duration(milliseconds: 2000));

@@ -405,6 +405,12 @@ final bottlesProvider = FutureProvider<List<Bottle>>((ref) async {
   return syncService._bottlesBox.values.toList();
 });
 
+// Stores provider for accessing stores
+final storesProvider = FutureProvider<List<dynamic>>((ref) async {
+  final syncService = ref.read(syncServiceProvider.notifier);
+  return syncService._storesBox.values.toList();
+});
+
 final lastSyncProvider = Provider<DateTime?>((ref) {
   return ref.watch(syncServiceProvider).lastSync;
 });

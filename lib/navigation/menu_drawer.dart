@@ -44,13 +44,13 @@ class MenuDrawer extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(AppSpacing.sm),
                   ),
-                  child: const Icon(
-                    CupertinoIcons.cube_box_fill,
-                    color: Colors.white,
-                    size: 32,
+                  child: Image.asset(
+                    'assets/pfandler_logo.png',
+                    width: 32,
+                    height: 32,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),

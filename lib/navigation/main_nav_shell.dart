@@ -25,9 +25,27 @@ class MainNavShell extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddBottleMenu(context),
         backgroundColor: theme.colorScheme.primary,
-        icon: const Icon(CupertinoIcons.plus),
-        label: const Text('Add Bottle'),
-        elevation: 4,
+        foregroundColor: Colors.white,
+        icon: const Icon(
+          CupertinoIcons.plus_circle_fill,
+          color: Colors.white,
+        ),
+        label: const Text(
+          'Add Bottle',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        elevation: 6,
+        extendedPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.xl),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
@@ -64,54 +82,94 @@ class MainNavShell extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppSpacing.sm),
-                ),
-                child: Icon(
-                  CupertinoIcons.barcode_viewfinder,
-                  color: theme.colorScheme.primary,
+            Card(
+              elevation: 0,
+              color: theme.colorScheme.primary.withValues(alpha: 0.05),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.md),
+                side: BorderSide(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                  width: 1,
                 ),
               ),
-              title: const Text('Scan Barcode'),
-              subtitle: const Text('Quick scan using camera'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const BarcodeScannerScreen(),
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppSpacing.sm),
                   ),
-                );
-              },
+                  child: Icon(
+                    CupertinoIcons.barcode_viewfinder,
+                    color: theme.colorScheme.primary,
+                    size: 24,
+                  ),
+                ),
+                title: const Text(
+                  'Scan Barcode',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text('Quick scan using camera'),
+                trailing: Icon(
+                  CupertinoIcons.chevron_right,
+                  color: theme.colorScheme.primary,
+                  size: 16,
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const BarcodeScannerScreen(),
+                    ),
+                  );
+                },
+              ),
             ),
             const SizedBox(height: AppSpacing.sm),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.secondary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppSpacing.sm),
-                ),
-                child: Icon(
-                  CupertinoIcons.pencil,
-                  color: theme.colorScheme.secondary,
+            Card(
+              elevation: 0,
+              color: theme.colorScheme.secondary.withValues(alpha: 0.05),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.md),
+                side: BorderSide(
+                  color: theme.colorScheme.secondary.withValues(alpha: 0.2),
+                  width: 1,
                 ),
               ),
-              title: const Text('Manual Entry'),
-              subtitle: const Text('Add bottle details manually'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ManualEntryScreen(),
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppSpacing.sm),
                   ),
-                );
-              },
+                  child: Icon(
+                    CupertinoIcons.pencil_circle_fill,
+                    color: theme.colorScheme.secondary,
+                    size: 24,
+                  ),
+                ),
+                title: const Text(
+                  'Manual Entry',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text('Add bottle details manually'),
+                trailing: Icon(
+                  CupertinoIcons.chevron_right,
+                  color: theme.colorScheme.secondary,
+                  size: 16,
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ManualEntryScreen(),
+                    ),
+                  );
+                },
+              ),
             ),
             SizedBox(
                 height: MediaQuery.of(context).padding.bottom + AppSpacing.md),
