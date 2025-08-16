@@ -180,12 +180,14 @@ class LocationService {
           address: loc['address']?.toString() ?? '',
           city: loc['city']?.toString() ?? '',
           postalCode: (loc['postalCode'] ?? loc['postal_code'])?.toString() ?? '',
-          acceptedTypes: _parseAcceptedTypes(loc['acceptedTypes']),
-          hasReturnMachine: loc['hasReturnMachine'] ?? true,
-          machineCount: _parseInt(loc['machineCount']) ?? 1,
+          acceptedTypes: _parseAcceptedTypes(loc['acceptedTypes'] ?? loc['accepted_types']),
+          hasReturnMachine: loc['hasReturnMachine'] ?? loc['has_return_machine'] ?? true,
+          machineCount: _parseInt(loc['machineCount'] ?? loc['machine_count']) ?? 1,
         );
-      } catch (e) {
+      } catch (e, stackTrace) {
         debugPrint('Error parsing store data: $e');
+        debugPrint('Store data was: $loc');
+        debugPrint('Stack trace: $stackTrace');
         return null;
       }
     }).where((store) => store != null).cast<Store>().toList();
@@ -240,36 +242,60 @@ class LocationService {
   List<AcceptedDepositType> _parseAcceptedTypes(dynamic types) {
     if (types == null) return AcceptedDepositType.values;
 
+    // Handle different input formats
+    List<dynamic> typesList = [];
+    
     if (types is List) {
-      return types.map((type) {
-        switch (type.toString().toLowerCase()) {
-          case 'plastic':
-          case 'plastic_025':
-          case 'plastic_0.25':
-            return AcceptedDepositType.plastic025;
-          case 'plastic_05':
-          case 'plastic_0.5':
-            return AcceptedDepositType.plastic05;
-          case 'plastic_1':
-          case 'plastic_1.0':
-            return AcceptedDepositType.plastic1;
-          case 'plastic_15':
-          case 'plastic_1.5':
-            return AcceptedDepositType.plastic15;
-          case 'can':
-          case 'aluminum':
-            return AcceptedDepositType.can;
-          case 'glass':
-            return AcceptedDepositType.glass;
-          case 'crate':
-            return AcceptedDepositType.crate;
-          default:
-            return AcceptedDepositType.plastic05;
-        }
-      }).toList();
+      typesList = types;
+    } else if (types is String) {
+      // Handle comma-separated string
+      typesList = types.split(',').map((s) => s.trim()).toList();
+    } else if (types is Map) {
+      // Handle map format (might be indexed like {0: 'plastic', 1: 'glass'})
+      typesList = types.values.toList();
+    } else {
+      // Fallback to all types
+      return AcceptedDepositType.values;
     }
 
-    return AcceptedDepositType.values;
+    // Parse the types list
+    final parsedTypes = typesList.map((type) {
+      final typeStr = type.toString().toLowerCase().trim();
+      switch (typeStr) {
+        case 'plastic':
+        case 'plastic_025':
+        case 'plastic_0.25':
+        case 'plastic025':
+          return AcceptedDepositType.plastic025;
+        case 'plastic_05':
+        case 'plastic_0.5':
+        case 'plastic05':
+          return AcceptedDepositType.plastic05;
+        case 'plastic_1':
+        case 'plastic_1.0':
+        case 'plastic1':
+          return AcceptedDepositType.plastic1;
+        case 'plastic_15':
+        case 'plastic_1.5':
+        case 'plastic15':
+          return AcceptedDepositType.plastic15;
+        case 'can':
+        case 'aluminum':
+        case 'cans':
+          return AcceptedDepositType.can;
+        case 'glass':
+        case 'bottle':
+          return AcceptedDepositType.glass;
+        case 'crate':
+        case 'crates':
+          return AcceptedDepositType.crate;
+        default:
+          return null;
+      }
+    }).where((type) => type != null).cast<AcceptedDepositType>().toList();
+
+    // Return parsed types or all types if none were successfully parsed
+    return parsedTypes.isNotEmpty ? parsedTypes : AcceptedDepositType.values;
   }
 
   // Get mock stores for fallback
