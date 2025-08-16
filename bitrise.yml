@@ -1,0 +1,257 @@
+---
+format_version: '13'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: flutter
+
+# App configuration
+app:
+  envs:
+  - BITRISE_FLUTTER_PROJECT_LOCATION: "."
+  - BITRISE_PROJECT_PATH: "."
+  - BITRISE_EXPORT_METHOD: app-store
+  - FLUTTER_VERSION: "stable"
+
+# Workflow triggers - when to run workflows
+trigger_map:
+  - push_branch: main
+    workflow: deploy-production
+  - push_branch: develop
+    workflow: deploy-staging
+  - pull_request_source_branch: "*"
+    pull_request_target_branch: main
+    workflow: test-and-build
+  - pull_request_source_branch: "*"
+    pull_request_target_branch: develop
+    workflow: test-and-build
+
+# Shared workflow configurations
+workflows:
+  # Setup workflow - common setup steps
+  _setup:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@8: {}
+    - flutter-installer@0:
+        inputs:
+        - version: $FLUTTER_VERSION
+        - is_update: 'false'
+    - cache-pull@2: {}
+    - flutter-analyze@0:
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+
+  # Test workflow - runs all tests
+  test-and-build:
+    before_run:
+    - _setup
+    after_run:
+    - _finish
+    steps:
+    - flutter-test@1:
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+        - generate_code_coverage_files: 'yes'
+    - flutter-build@0:
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+        - platform: both
+        - ios_output_type: archive
+        - android_output_type: apk
+    - deploy-to-bitrise-io@2:
+        inputs:
+        - notify_user_groups: testers
+
+  # Deploy to staging
+  deploy-staging:
+    before_run:
+    - _setup
+    after_run:
+    - _finish
+    envs:
+    - DEPLOY_ENV: staging
+    - BUNDLE_ID_SUFFIX: .staging
+    steps:
+    - flutter-test@1:
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+    - change-value@1:
+        title: Update API endpoint for staging
+        inputs:
+        - file: lib/core/config.dart
+        - old_value: "http://localhost:8080"
+        - new_value: "https://staging-api.pfandler.app"
+    - flutter-build@0:
+        title: Build iOS Staging
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+        - platform: ios
+        - ios_output_type: archive
+        - ios_codesign_identity: "iPhone Distribution"
+        - ios_export_method: ad-hoc
+        - ios_additional_params: "--build-name=$BITRISE_BUILD_NUMBER --build-number=$BITRISE_BUILD_NUMBER"
+    - flutter-build@0:
+        title: Build Android Staging
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+        - platform: android
+        - android_output_type: apk
+        - android_additional_params: "--build-name=$BITRISE_BUILD_NUMBER --build-number=$BITRISE_BUILD_NUMBER"
+    - deploy-to-bitrise-io@2:
+        inputs:
+        - notify_user_groups: testers|qa
+        - is_enable_public_page: true
+    - slack@3:
+        inputs:
+        - webhook_url: "$SLACK_WEBHOOK_URL"
+        - channel: "#deployments"
+        - message: |
+            🚀 Staging build deployed!
+            App: Pfandler
+            Version: $BITRISE_BUILD_NUMBER
+            Branch: $BITRISE_GIT_BRANCH
+            Download: $BITRISE_PUBLIC_INSTALL_PAGE_URL
+
+  # Deploy to production
+  deploy-production:
+    before_run:
+    - _setup
+    after_run:
+    - _finish
+    envs:
+    - DEPLOY_ENV: production
+    steps:
+    - flutter-test@1:
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+    - change-value@1:
+        title: Update API endpoint for production
+        inputs:
+        - file: lib/core/config.dart
+        - old_value: "http://localhost:8080"
+        - new_value: "https://api.pfandler.app"
+    - certificate-and-profile-installer@1: {}
+    - flutter-build@0:
+        title: Build iOS Production
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+        - platform: ios
+        - ios_output_type: archive
+        - ios_codesign_identity: "iPhone Distribution"
+        - ios_export_method: app-store
+        - ios_additional_params: "--build-name=$BITRISE_APP_VERSION --build-number=$BITRISE_BUILD_NUMBER"
+    - xcode-archive-mac@4:
+        inputs:
+        - project_path: ios/Runner.xcworkspace
+        - scheme: Runner
+        - distribution_method: app-store
+    - deploy-to-itunesconnect-application-loader@1:
+        inputs:
+        - ipa_path: "$BITRISE_IPA_PATH"
+        - app_id: "$APPLE_APP_ID"
+        - password: "$APPLE_APP_SPECIFIC_PASSWORD"
+    - flutter-build@0:
+        title: Build Android Production
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+        - platform: android
+        - android_output_type: aab
+        - android_additional_params: "--build-name=$BITRISE_APP_VERSION --build-number=$BITRISE_BUILD_NUMBER"
+    - sign-apk@1:
+        inputs:
+        - android_app: "$BITRISE_AAB_PATH"
+        - keystore_url: "$BITRISEIO_ANDROID_KEYSTORE_URL"
+        - keystore_password: "$BITRISEIO_ANDROID_KEYSTORE_PASSWORD"
+        - keystore_alias: "$BITRISEIO_ANDROID_KEYSTORE_ALIAS"
+        - private_key_password: "$BITRISEIO_ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD"
+    - google-play-deploy@3:
+        inputs:
+        - service_account_json_key_path: "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"
+        - package_name: "com.pfandler.app"
+        - track: production
+        - app_path: "$BITRISE_SIGNED_AAB_PATH"
+        - release_name: "v$BITRISE_APP_VERSION"
+    - deploy-to-bitrise-io@2:
+        inputs:
+        - notify_user_groups: all
+    - slack@3:
+        inputs:
+        - webhook_url: "$SLACK_WEBHOOK_URL"
+        - channel: "#deployments"
+        - message: |
+            🎉 Production release deployed!
+            App: Pfandler
+            Version: $BITRISE_APP_VERSION ($BITRISE_BUILD_NUMBER)
+            iOS: App Store Review
+            Android: Google Play Store
+            Commit: $BITRISE_GIT_COMMIT
+
+  # Nightly build workflow
+  nightly-build:
+    before_run:
+    - _setup
+    after_run:
+    - _finish
+    steps:
+    - script@1:
+        title: Clean Flutter dependencies
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            set -ex
+            flutter clean
+            flutter pub get
+    - flutter-test@1:
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+        - additional_params: "--coverage"
+    - flutter-build@0:
+        inputs:
+        - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
+        - platform: both
+        - ios_output_type: archive
+        - android_output_type: apk
+        - ios_additional_params: "--dart-define=ENV=nightly"
+        - android_additional_params: "--dart-define=ENV=nightly"
+    - script@1:
+        title: Upload test coverage
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
+    - cache-push@2:
+        inputs:
+        - cache_paths: |
+            ~/.pub-cache
+            ./.packages
+            ./ios/Pods -> ./ios/Podfile.lock
+            ./ios/Runner.xcworkspace
+
+  # Finish workflow - cleanup and caching
+  _finish:
+    steps:
+    - cache-push@2:
+        inputs:
+        - cache_paths: |
+            $HOME/.pub-cache
+            ./.packages
+            ./ios/Pods -> ./ios/Podfile.lock
+    - deploy-to-bitrise-io@2: {}
+
+# Meta information
+meta:
+  bitrise.io:
+    stack: osx-xcode-15.0.x
+    machine_type_id: g2-m1.8core
+
+# Environment variables to be configured in Bitrise
+# Required secrets:
+# - SLACK_WEBHOOK_URL: Slack webhook for notifications
+# - APPLE_APP_ID: Apple App Store app ID
+# - APPLE_APP_SPECIFIC_PASSWORD: App-specific password for Apple
+# - GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: Google Play service account JSON
+# - CODECOV_TOKEN: Codecov token for coverage reports
+# - BITRISEIO_ANDROID_KEYSTORE_URL: Android keystore URL
+# - BITRISEIO_ANDROID_KEYSTORE_PASSWORD: Android keystore password
+# - BITRISEIO_ANDROID_KEYSTORE_ALIAS: Android keystore alias
+# - BITRISEIO_ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD: Android private key password

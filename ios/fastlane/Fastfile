@@ -1,0 +1,148 @@
+# iOS Fastfile for Pfandler app
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Push a new beta build to TestFlight"
+  lane :beta do
+    # Ensure git is clean
+    ensure_git_status_clean
+    
+    # Increment build number
+    increment_build_number(xcodeproj: "Runner.xcodeproj")
+    
+    # Build the app
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "pfandler.ipa",
+      clean: true,
+      configuration: "Release",
+      include_bitcode: false,
+      export_options: {
+        provisioningProfiles: {
+          "com.pfandler.app" => "Pfandler Distribution"
+        }
+      }
+    )
+    
+    # Upload to TestFlight
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      apple_id: ENV["APPLE_APP_ID"],
+      app_identifier: "com.pfandler.app",
+      team_id: ENV["APPLE_TEAM_ID"],
+      ipa: "./build/pfandler.ipa",
+      changelog: "Beta build from CI/CD"
+    )
+    
+    # Commit version bump
+    commit_version_bump(
+      message: "Version bump [skip ci]",
+      xcodeproj: "Runner.xcodeproj"
+    )
+    
+    # Push to remote
+    push_to_git_remote(
+      remote_branch: "main",
+      tags: true
+    )
+    
+    # Send Slack notification
+    slack(
+      message: "Successfully deployed new iOS beta build to TestFlight!",
+      webhook_url: ENV["SLACK_WEBHOOK_URL"],
+      success: true,
+      payload: {
+        "Build Number" => get_build_number,
+        "Version" => get_version_number
+      }
+    )
+  end
+
+  desc "Deploy a new version to the App Store"
+  lane :release do
+    # Ensure git is clean
+    ensure_git_status_clean
+    
+    # Match certificates and profiles
+    match(
+      type: "appstore",
+      app_identifier: "com.pfandler.app",
+      readonly: false
+    )
+    
+    # Build the app
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "pfandler.ipa",
+      clean: true,
+      configuration: "Release"
+    )
+    
+    # Upload to App Store Connect
+    upload_to_app_store(
+      force: true,
+      skip_metadata: false,
+      skip_screenshots: false,
+      submit_for_review: true,
+      automatic_release: true,
+      app_identifier: "com.pfandler.app",
+      ipa: "./build/pfandler.ipa",
+      submission_information: {
+        add_id_info_limits_tracking: true,
+        add_id_info_serves_ads: false,
+        add_id_info_tracks_action: true,
+        add_id_info_tracks_install: true,
+        add_id_info_uses_idfa: false,
+        content_rights_has_rights: true,
+        content_rights_contains_third_party_content: false,
+        export_compliance_platform: 'ios',
+        export_compliance_compliance_required: false,
+        export_compliance_encryption_updated: false,
+        export_compliance_uses_encryption: false
+      }
+    )
+    
+    # Create git tag
+    add_git_tag(
+      tag: "ios-v#{get_version_number}-#{get_build_number}"
+    )
+    
+    # Push to remote
+    push_to_git_remote(
+      remote_branch: "main",
+      tags: true
+    )
+    
+    # Send Slack notification
+    slack(
+      message: "Successfully deployed version #{get_version_number} to the App Store!",
+      webhook_url: ENV["SLACK_WEBHOOK_URL"],
+      success: true
+    )
+  end
+
+  desc "Create screenshots"
+  lane :screenshots do
+    capture_screenshots
+    frame_screenshots(white: true)
+    upload_to_app_store(
+      skip_binary_upload: true,
+      skip_metadata: true
+    )
+  end
+
+  error do |lane, exception|
+    slack(
+      message: exception.message,
+      webhook_url: ENV["SLACK_WEBHOOK_URL"],
+      success: false
+    )
+  end
+end

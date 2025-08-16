@@ -1,0 +1,954 @@
+{
+  "info": {
+    "name": "Pfandler Backend - Serverpod API",
+    "description": "Complete API collection for Pfandler Backend bottle return system.\n\n## Austria-Wide Location Search\n🇦🇹 **NEW**: Search ALL deposit locations across Austria! No need to specify radius - just omit `maxDistance` for country-wide results.\n\n### Search Modes:\n- **Austria-Wide Search**: No `maxDistance` or `maxDistance > 100` → searches all Austria\n- **Local Search**: `maxDistance ≤ 100` → searches within specified radius\n- **Smart Caching**: Automatically fetches from major Austrian cities (Vienna, Graz, Linz, Salzburg, Innsbruck, Klagenfurt, St. Pölten, Bregenz)\n\n### Example Location Response:\n```json\n{\n  \"id\": 1,\n  \"name\": \"Billa\",\n  \"type\": \"supermarket\",\n  \"lat\": 47.0704764,\n  \"lng\": 15.4379453,\n  \"address\": \"Hauptplatz 3, 8010 Graz\",\n  \"googleMapsUrl\": \"https://www.google.com/maps?q=47.0704764,15.4379453\",\n  \"acceptsJson\": \"{\\\"plastic_bottles\\\":true,\\\"cans\\\":true,\\\"glass_bottles\\\":true,\\\"has_reverse_vending_machine\\\":false}\",\n  \"openingHoursJson\": \"{\\\"monday\\\":\\\"07:15-19:15\\\",\\\"friday\\\":\\\"07:15-19:15\\\",\\\"saturday\\\":\\\"07:15-18:00\\\"}\"\n}\n```\n\n### Supported Austrian Chains:\n- Billa, Billa Plus, Billa Corso\n- Spar, Eurospar, Interspar, Spar Gourmet  \n- Hofer, Lidl, Penny\n- MPreis, Merkur, REWE, ADEG",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register with Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"securePassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/registerWithEmail",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "registerWithEmail"]
+            }
+          }
+        },
+        {
+          "name": "Login with Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"securePassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/loginWithEmail",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "loginWithEmail"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/getCurrentUser",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "getCurrentUser"]
+            }
+          }
+        },
+        {
+          "name": "Link Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"device-uuid-12345\",\n  \"deviceName\": \"iPhone 15 Pro\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/linkDevice",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "linkDevice"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "item": [
+        {
+          "name": "Get Product by Barcode",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"barcode\": \"4014500507880\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/getProductByBarcode",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "getProductByBarcode"]
+            }
+          }
+        },
+        {
+          "name": "Suggest Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"barcode\": \"4014500507881\",\n    \"name\": \"Coca Cola 0.5L\",\n    \"brand\": \"Coca Cola\",\n    \"volumeML\": 500,\n    \"containerType\": \"plastic\",\n    \"defaultDepositCents\": 25\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/suggestProduct",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "suggestProduct"]
+            }
+          }
+        },
+        {
+          "name": "Search Products",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Cola\",\n  \"limit\": 20,\n  \"offset\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/searchProducts",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "searchProducts"]
+            }
+          }
+        },
+        {
+          "name": "Verify Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/verifyProduct",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "verifyProduct"]
+            }
+          }
+        },
+        {
+          "name": "Lookup Product External",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"barcode\": \"5449000000996\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/lookupProductExternal",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "lookupProductExternal"]
+            },
+            "description": "Lookup product information from external APIs (OpenFoodFacts, OpenGTIN). Example barcodes: 5449000000996 (Coca-Cola), 4060800151940 (Fritz-Kola), 8710398601209 (Heineken)"
+          }
+        },
+        {
+          "name": "Enrich Product Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/catalog/enrichProductData",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "enrichProductData"]
+            },
+            "description": "Enrich existing product data with information from external sources"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan",
+      "item": [
+        {
+          "name": "Start Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locationId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/scan/startSession",
+              "host": ["{{baseUrl}}"],
+              "path": ["scan", "startSession"]
+            }
+          }
+        },
+        {
+          "name": "Record Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scanInput\": {\n    \"sessionId\": 1,\n    \"barcode\": \"4014500507880\",\n    \"volumeML\": 500,\n    \"containerType\": \"plastic\",\n    \"depositCents\": 25,\n    \"source\": \"scan\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/scan/recordScan",
+              "host": ["{{baseUrl}}"],
+              "path": ["scan", "recordScan"]
+            }
+          }
+        },
+        {
+          "name": "End Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/scan/endSession",
+              "host": ["{{baseUrl}}"],
+              "path": ["scan", "endSession"]
+            }
+          }
+        },
+        {
+          "name": "Bulk Upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scans\": [\n    {\n      \"barcode\": \"4014500507880\",\n      \"volumeML\": 500,\n      \"containerType\": \"plastic\",\n      \"depositCents\": 25,\n      \"source\": \"manual\"\n    },\n    {\n      \"barcode\": \"4014500507881\",\n      \"volumeML\": 330,\n      \"containerType\": \"glass\",\n      \"depositCents\": 8,\n      \"source\": \"manual\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/scan/bulkUpload",
+              "host": ["{{baseUrl}}"],
+              "path": ["scan", "bulkUpload"]
+            }
+          }
+        },
+        {
+          "name": "Get User Scans",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"limit\": 50,\n  \"offset\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/scan/getUserScans",
+              "host": ["{{baseUrl}}"],
+              "path": ["scan", "getUserScans"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Location",
+      "item": [
+        {
+          "name": "Find Locations - All Austria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 48.2082,\n  \"lng\": 16.3738,\n  \"filters\": {\n    \"type\": \"supermarket\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/nearby",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "nearby"]
+            },
+            "description": "Search ALL deposit locations across Austria. No maxDistance specified means Austria-wide search. Results sorted by distance from user location. Fetches from all major Austrian cities if needed."
+          }
+        },
+        {
+          "name": "Find Nearby Locations - Local (Vienna 10km)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 48.2082,\n  \"lng\": 16.3738,\n  \"filters\": {\n    \"type\": \"supermarket\",\n    \"maxDistance\": 10.0\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/nearby",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "nearby"]
+            },
+            "description": "Find deposit locations within 10km of Vienna. For local searches with specific radius. Returns locations with addresses and Google Maps URLs."
+          }
+        },
+        {
+          "name": "Find Nearby Locations - Graz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 47.0707,\n  \"lng\": 15.4395,\n  \"filters\": {\n    \"type\": \"supermarket\",\n    \"maxDistance\": 5.0\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/nearby",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "nearby"]
+            },
+            "description": "Find nearby deposit locations in Graz, Austria. Demonstrates Austria-wide coverage beyond Vienna. Returns formatted addresses and Google Maps URLs."
+          }
+        },
+        {
+          "name": "Find Nearby Locations - Salzburg",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 47.8095,\n  \"lng\": 13.0550,\n  \"filters\": {\n    \"type\": \"supermarket\",\n    \"maxDistance\": 8.0\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/nearby",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "nearby"]
+            },
+            "description": "Find deposit locations in Salzburg, Austria. Shows system works across all Austrian cities with OpenStreetMap integration."
+          }
+        },
+        {
+          "name": "Find Nearby Locations - Innsbruck",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 47.2692,\n  \"lng\": 11.4041,\n  \"filters\": {\n    \"type\": \"supermarket\",\n    \"maxDistance\": 6.0\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/nearby",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "nearby"]
+            },
+            "description": "Find deposit locations in Innsbruck, Austria. Demonstrates Alpine region coverage with Spar, MPreis and other regional chains."
+          }
+        },
+        {
+          "name": "Report Location Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locationId\": 1,\n  \"status\": \"full\",\n  \"note\": \"Machine is full, needs to be emptied\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/reportStatus",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "reportStatus"]
+            }
+          }
+        },
+        {
+          "name": "Add Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"suggestedLocation\": {\n    \"name\": \"Billa Plus Wien Mitte\",\n    \"type\": \"supermarket\",\n    \"lat\": 48.2082,\n    \"lng\": 16.3738,\n    \"address\": \"Landstraßer Hauptstraße 1b, 1030 Wien\",\n    \"googleMapsUrl\": \"https://www.google.com/maps?q=48.2082,16.3738\",\n    \"acceptsJson\": \"{\\\"plastic_bottles\\\":true,\\\"cans\\\":true,\\\"glass_bottles\\\":true,\\\"has_reverse_vending_machine\\\":true}\",\n    \"openingHoursJson\": \"{\\\"monday\\\":\\\"07:00-22:00\\\",\\\"tuesday\\\":\\\"07:00-22:00\\\",\\\"wednesday\\\":\\\"07:00-22:00\\\",\\\"thursday\\\":\\\"07:00-22:00\\\",\\\"friday\\\":\\\"07:00-22:00\\\",\\\"saturday\\\":\\\"07:00-18:00\\\",\\\"sunday\\\":\\\"closed\\\"}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/addLocation",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "addLocation"]
+            },
+            "description": "Add a new deposit location to the database. Now includes address and Google Maps URL fields for better user experience."
+          }
+        },
+        {
+          "name": "Get Favorite Locations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/getFavorites",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "getFavorites"]
+            }
+          }
+        },
+        {
+          "name": "Add Favorite Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locationId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/addFavorite",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "addFavorite"]
+            }
+          }
+        },
+        {
+          "name": "Remove Favorite Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locationId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/removeFavorite",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "removeFavorite"]
+            }
+          }
+        },
+        {
+          "name": "Get Austrian Deposit Locations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 48.2082,\n  \"lng\": 16.3738,\n  \"maxDistanceKm\": 5.0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/getAustrianDepositLocations",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "getAustrianDepositLocations"]
+            },
+            "description": "Get Austrian stores that accept deposit containers in Vienna. Returns locations with addresses and Google Maps URLs. Auto-fetches from OpenStreetMap across all of Austria."
+          }
+        },
+        {
+          "name": "Import Austrian Stores",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 48.3069,\n  \"lng\": 14.2858,\n  \"radiusKm\": 12.0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/location/importAustrianStores",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "importAustrianStores"]
+            },
+            "description": "Import Austrian supermarkets from OpenStreetMap that accept deposit containers (Billa, Spar, Hofer, Lidl, Penny, MPreis, Merkur, etc.). Example uses Linz coordinates. Returns locations with addresses and Google Maps URLs."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stats",
+      "item": [
+        {
+          "name": "Get Totals",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startDate\": \"2024-01-01T00:00:00Z\",\n  \"endDate\": \"2024-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/stats/totals",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats", "totals"]
+            }
+          }
+        },
+        {
+          "name": "Get Breakdown",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"breakdownBy\": \"containerType\",\n  \"startDate\": \"2024-01-01T00:00:00Z\",\n  \"endDate\": \"2024-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/stats/breakdown",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats", "breakdown"]
+            },
+            "description": "breakdownBy options: containerType, month, location, brand"
+          }
+        },
+        {
+          "name": "Export CSV",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startDate\": \"2024-01-01T00:00:00Z\",\n  \"endDate\": \"2024-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/stats/exportCSV",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats", "exportCSV"]
+            }
+          }
+        },
+        {
+          "name": "Get Leaderboard",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"period\": \"month\",\n  \"limit\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/stats/getLeaderboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats", "getLeaderboard"]
+            },
+            "description": "period options: week, month, year, all"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Social",
+      "item": [
+        {
+          "name": "Get Friends",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/social/getFriends",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "getFriends"]
+            }
+          }
+        },
+        {
+          "name": "Get User Badges",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/social/getUserBadges",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "getUserBadges"]
+            }
+          }
+        },
+        {
+          "name": "Award Badge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"badgeId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/social/awardBadge",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "awardBadge"]
+            }
+          }
+        },
+        {
+          "name": "Check and Award Badges",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/social/checkAndAwardBadges",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "checkAndAwardBadges"]
+            }
+          }
+        },
+        {
+          "name": "Get All Badges",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/social/getAllBadges",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "getAllBadges"]
+            }
+          }
+        },
+        {
+          "name": "Create Badge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Eco Warrior\",\n  \"description\": \"Returned 1000 bottles\",\n  \"iconUrl\": \"https://example.com/badges/eco-warrior.png\",\n  \"criteria\": \"scans >= 1000\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/social/createBadge",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "createBadge"]
+            }
+          }
+        },
+        {
+          "name": "Get Social Leaderboard",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"period\": \"month\",\n  \"limit\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/social/getLeaderboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "getLeaderboard"]
+            },
+            "description": "period options: week, month, year, all"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+# Android Fastfile for Pfandler app
+
+default_platform(:android)
+
+platform :android do
+  desc "Deploy a new beta build to Google Play Beta"
+  lane :beta do
+    # Ensure git is clean
+    ensure_git_status_clean
+    
+    # Build the Flutter app
+    sh("flutter build appbundle --release")
+    
+    # Upload to Google Play Beta
+    upload_to_play_store(
+      track: 'beta',
+      release_status: 'draft',
+      aab: '../build/app/outputs/bundle/release/app-release.aab',
+      json_key: ENV["GOOGLE_PLAY_JSON_KEY_PATH"],
+      package_name: "com.pfandler.app",
+      skip_upload_metadata: false,
+      skip_upload_changelogs: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+    
+    # Send Slack notification
+    slack(
+      message: "Successfully deployed new Android beta build to Google Play!",
+      webhook_url: ENV["SLACK_WEBHOOK_URL"],
+      success: true,
+      payload: {
+        "Version Code" => android_get_version_code,
+        "Version Name" => android_get_version_name
+      }
+    )
+  end
+
+  desc "Deploy a new version to Google Play Store"
+  lane :release do
+    # Ensure git is clean
+    ensure_git_status_clean
+    
+    # Build the Flutter app
+    sh("flutter build appbundle --release")
+    
+    # Upload to Google Play Production
+    upload_to_play_store(
+      track: 'production',
+      release_status: 'completed',
+      aab: '../build/app/outputs/bundle/release/app-release.aab',
+      json_key: ENV["GOOGLE_PLAY_JSON_KEY_PATH"],
+      package_name: "com.pfandler.app",
+      skip_upload_metadata: false,
+      skip_upload_changelogs: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false,
+      rollout: "1.0" # 100% rollout
+    )
+    
+    # Create git tag
+    add_git_tag(
+      tag: "android-v#{android_get_version_name}-#{android_get_version_code}"
+    )
+    
+    # Push to remote
+    push_to_git_remote(
+      remote_branch: "main",
+      tags: true
+    )
+    
+    # Send Slack notification
+    slack(
+      message: "Successfully deployed version #{android_get_version_name} to Google Play Store!",
+      webhook_url: ENV["SLACK_WEBHOOK_URL"],
+      success: true
+    )
+  end
+
+  desc "Build and distribute via Firebase App Distribution"
+  lane :firebase do
+    # Build APK
+    sh("flutter build apk --release")
+    
+    # Upload to Firebase App Distribution
+    firebase_app_distribution(
+      app: ENV["FIREBASE_APP_ID"],
+      service_credentials_file: ENV["FIREBASE_SERVICE_ACCOUNT_PATH"],
+      groups: "testers",
+      release_notes: "New build from CI/CD",
+      android_artifact_type: "APK",
+      android_artifact_path: "../build/app/outputs/flutter-apk/app-release.apk"
+    )
+    
+    # Send Slack notification
+    slack(
+      message: "Successfully distributed Android app via Firebase!",
+      webhook_url: ENV["SLACK_WEBHOOK_URL"],
+      success: true
+    )
+  end
+
+  desc "Create screenshots"
+  lane :screenshots do
+    capture_android_screenshots
+    upload_to_play_store(
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true
+    )
+  end
+
+  # Helper lane to get version code
+  private_lane :android_get_version_code do
+    gradle_file = "../app/build.gradle"
+    regex = /versionCode\s+(\d+)/
+    File.read(gradle_file)[regex, 1].to_i
+  end
+
+  # Helper lane to get version name
+  private_lane :android_get_version_name do
+    gradle_file = "../app/build.gradle"
+    regex = /versionName\s+"([^"]+)"/
+    File.read(gradle_file)[regex, 1]
+  end
+
+  error do |lane, exception|
+    slack(
+      message: exception.message,
+      webhook_url: ENV["SLACK_WEBHOOK_URL"],
+      success: false
+    )
+  end
+end
