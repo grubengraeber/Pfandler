@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_spacing.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/bottle.dart';
 import '../../services/auth_service.dart';
 import '../../services/sync_service.dart';
@@ -12,9 +13,11 @@ class BottlesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Bottles'),
+        title: Text(l10n?.bottles ?? 'My Bottles'),
         leading: IconButton(
           icon: const Icon(CupertinoIcons.back),
           onPressed: () {
@@ -33,8 +36,8 @@ class BottlesScreen extends ConsumerWidget {
           final authState = ref.watch(authProvider);
           
           if (!authState.isAuthenticated) {
-            return const Center(
-              child: Text('Please sign in to view your bottles'),
+            return Center(
+              child: Text(l10n?.translate('signInToViewBottles') ?? 'Please sign in to view your bottles'),
             );
           }
           
@@ -43,7 +46,7 @@ class BottlesScreen extends ConsumerWidget {
             if (current.status == SyncStatus.error) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Sync failed: ${current.error}'),
+                  content: Text('${l10n?.translate('syncFailed') ?? 'Sync failed'}: ${current.error}'),
                   backgroundColor: Theme.of(context).colorScheme.error,
                 ),
               );
@@ -80,14 +83,14 @@ class BottlesScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: AppSpacing.md),
                                 Text(
-                                  'No bottles scanned yet',
+                                  l10n?.translate('noBottlesYet') ?? 'No bottles scanned yet',
                                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                     color: Theme.of(context).textTheme.bodyMedium?.color,
                                   ),
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
                                 Text(
-                                  'Start scanning bottles to track your returns',
+                                  l10n?.translate('startScanning') ?? 'Start scanning bottles to track your returns',
                                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
                                   ),

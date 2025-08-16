@@ -13,6 +13,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../services/auth_service.dart';
 import '../../services/stats_service.dart';
 import '../../services/sync_service.dart';
+import '../../l10n/app_localizations.dart';
 
 // Analytics time period selector
 enum AnalyticsPeriod { daily, weekly, monthly, yearly }
@@ -214,10 +215,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Analytics'),
+        title: Text(l10n?.analytics ?? 'Analytics'),
         leading: IconButton(
           icon: const Icon(CupertinoIcons.back),
           onPressed: () {
@@ -315,6 +317,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       _isSharing = true;
     });
 
+    final l10n = AppLocalizations.of(context);
+    final shareText = l10n?.translate('shareAnalytics') ?? 'Check out my Pfandler bottle return analytics!';
+
     try {
       // Capture the screenshot
       final image = await _screenshotController.capture();
@@ -331,7 +336,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       // Share the file
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: 'Check out my Pfandler bottle return analytics!',
+        text: shareText,
         subject: 'Pfandler Analytics',
       );
 
@@ -342,10 +347,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         }
       });
     } catch (e) {
+      final failedMessage = l10n?.translate('failedToShare') ?? 'Failed to share analytics';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to share analytics: $e'),
+            content: Text('$failedMessage: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -361,6 +367,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   Widget _buildStatsCards(BuildContext context, Map<String, dynamic> stats) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       children: [
@@ -369,7 +376,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             Expanded(
               child: _buildStatCard(
                 context,
-                title: 'Total Bottles',
+                title: l10n?.totalBottles ?? 'Total Bottles',
                 value: stats['totalBottles'].toString(),
                 icon: CupertinoIcons.cube_box_fill,
                 color: theme.colorScheme.primary,
@@ -379,7 +386,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             Expanded(
               child: _buildStatCard(
                 context,
-                title: 'Total Value',
+                title: l10n?.translate('totalValue') ?? 'Total Value',
                 value: '€${stats['totalValue'].toStringAsFixed(2)}',
                 icon: CupertinoIcons.money_euro_circle_fill,
                 color: AppColors.success,
@@ -393,7 +400,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             Expanded(
               child: _buildStatCard(
                 context,
-                title: 'Avg/Day',
+                title: l10n?.translate('averagePerDay') ?? 'Avg/Day',
                 value: stats['averagePerDay'].toStringAsFixed(1),
                 icon: CupertinoIcons.chart_bar_fill,
                 color: AppColors.info,
@@ -403,7 +410,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             Expanded(
               child: _buildStatCard(
                 context,
-                title: 'Most Common',
+                title: l10n?.translate('mostCommon') ?? 'Most Common',
                 value: stats['mostCommonType'],
                 icon: CupertinoIcons.star_fill,
                 color: AppColors.warning,
@@ -507,6 +514,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   Widget _buildTrendChart(BuildContext context, List<FlSpot> chartData) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final period = ref.watch(analyticsPeriodProvider);
 
     return Card(
@@ -516,7 +524,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Return Trend',
+              l10n?.translate('returnTrend') ?? 'Return Trend',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -552,7 +560,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                         interval: 1,
                         getTitlesWidget: (value, meta) {
                           return Text(
-                            _getBottomTitle(value, period),
+                            _getBottomTitle(value, period, l10n),
                             style: const TextStyle(fontSize: 10),
                           );
                         },
@@ -626,17 +634,38 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
-  String _getBottomTitle(double value, AnalyticsPeriod period) {
+  String _getBottomTitle(double value, AnalyticsPeriod period, AppLocalizations? l10n) {
     switch (period) {
       case AnalyticsPeriod.daily:
-        final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        final days = l10n != null ? [
+          l10n.translate('mon'),
+          l10n.translate('tue'),
+          l10n.translate('wed'),
+          l10n.translate('thu'),
+          l10n.translate('fri'),
+          l10n.translate('sat'),
+          l10n.translate('sun'),
+        ] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         return value.toInt() < days.length ? days[value.toInt()] : '';
       case AnalyticsPeriod.weekly:
         return 'W${value.toInt() + 1}';
       case AnalyticsPeriod.monthly:
         return '${value.toInt() + 1}';
       case AnalyticsPeriod.yearly:
-        final months = [
+        final months = l10n != null ? [
+          l10n.translate('jan'),
+          l10n.translate('feb'),
+          l10n.translate('mar'),
+          l10n.translate('apr'),
+          l10n.translate('mayShort'),
+          l10n.translate('jun'),
+          l10n.translate('jul'),
+          l10n.translate('aug'),
+          l10n.translate('sep'),
+          l10n.translate('oct'),
+          l10n.translate('nov'),
+          l10n.translate('dec'),
+        ] : [
           'Jan',
           'Feb',
           'Mar',
@@ -657,6 +686,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   Widget _buildDepositTypesChart(
       BuildContext context, List<DepositTypeData> depositData) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     // Convert to PieChartSectionData with selection state
     final pieChartSections = depositData.asMap().entries.map((entry) {
@@ -684,7 +714,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Deposit Types',
+              l10n?.translate('depositTypes') ?? 'Deposit Types',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -774,6 +804,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   Widget _buildBottleTypesChart(
       BuildContext context, List<PieChartSectionData> pieData) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Card(
       child: Padding(
@@ -782,7 +813,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Bottle Types',
+              l10n?.translate('bottleTypes') ?? 'Bottle Types',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),

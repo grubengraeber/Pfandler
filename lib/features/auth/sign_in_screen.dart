@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_spacing.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/auth_service.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
@@ -30,6 +31,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authNotifier = ref.read(authProvider.notifier);
+    final l10n = AppLocalizations.of(context);
     
     try {
       if (_isSignUp) {
@@ -48,7 +50,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isSignUp ? 'Account created successfully!' : 'Signed in successfully!'),
+            content: Text(_isSignUp ? (l10n?.translate('accountCreated') ?? 'Account created successfully!') : (l10n?.translate('signInSuccess') ?? 'Signed in successfully!')),
           ),
         );
       }
@@ -56,7 +58,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text('${l10n?.error ?? 'Error'}: ${e.toString()}'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -67,11 +69,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final authState = ref.watch(authProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isSignUp ? 'Create Account' : 'Sign In'),
+        title: Text(_isSignUp ? (l10n?.signUp ?? 'Create Account') : (l10n?.signIn ?? 'Sign In')),
         leading: IconButton(
           icon: const Icon(CupertinoIcons.back),
           onPressed: () => Navigator.pop(context),
@@ -105,7 +108,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 
                 // Title
                 Text(
-                  _isSignUp ? 'Create Your Account' : 'Welcome Back',
+                  _isSignUp ? (l10n?.translate('createAccount') ?? 'Create Your Account') : (l10n?.translate('welcomeBack') ?? 'Welcome Back'),
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -114,8 +117,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   _isSignUp
-                      ? 'Sign up to sync your bottles across devices'
-                      : 'Sign in to access your bottle collection',
+                      ? (l10n?.translate('signUpDescription') ?? 'Sign up to sync your bottles across devices')
+                      : (l10n?.translate('signInDescription') ?? 'Sign in to access your bottle collection'),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.textTheme.bodySmall?.color,
                   ),
@@ -129,7 +132,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autocorrect: false,
                   decoration: InputDecoration(
-                    labelText: 'Email',
+                    labelText: l10n?.email ?? 'Email',
                     prefixIcon: const Icon(CupertinoIcons.mail),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppSpacing.md),
@@ -137,10 +140,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
+                      return l10n?.translate('enterEmail') ?? 'Please enter your email';
                     }
                     if (!value.contains('@')) {
-                      return 'Please enter a valid email';
+                      return l10n?.translate('invalidEmail') ?? 'Please enter a valid email';
                     }
                     return null;
                   },
@@ -152,7 +155,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: l10n?.password ?? 'Password',
                     prefixIcon: const Icon(CupertinoIcons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -172,10 +175,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
+                      return l10n?.translate('enterPassword') ?? 'Please enter your password';
                     }
                     if (_isSignUp && value.length < 6) {
-                      return 'Password must be at least 6 characters';
+                      return l10n?.translate('passwordTooShort') ?? 'Password must be at least 6 characters';
                     }
                     return null;
                   },
@@ -198,7 +201,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             strokeWidth: 2,
                           ),
                         )
-                      : Text(_isSignUp ? 'Create Account' : 'Sign In'),
+                      : Text(_isSignUp ? (l10n?.signUp ?? 'Create Account') : (l10n?.signIn ?? 'Sign In')),
                 ),
                 const SizedBox(height: AppSpacing.md),
 
@@ -208,8 +211,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   children: [
                     Text(
                       _isSignUp
-                          ? 'Already have an account?'
-                          : "Don't have an account?",
+                          ? (l10n?.translate('alreadyHaveAccount') ?? 'Already have an account?')
+                          : (l10n?.translate('dontHaveAccount') ?? "Don't have an account?"),
                       style: theme.textTheme.bodyMedium,
                     ),
                     TextButton(

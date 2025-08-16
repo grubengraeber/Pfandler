@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/export_service.dart';
+import '../../services/locale_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -13,10 +15,11 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeModeProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(AppLocalizations.of(context)?.settings ?? 'Settings'),
         leading: IconButton(
           icon: const Icon(CupertinoIcons.arrow_left),
           onPressed: () => Navigator.pop(context),
@@ -31,23 +34,46 @@ class SettingsScreen extends ConsumerWidget {
               horizontal: AppSpacing.md,
               vertical: AppSpacing.xs,
             ),
-            child: ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppSpacing.xs),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppSpacing.xs),
+                    ),
+                    child: Icon(
+                      CupertinoIcons.paintbrush,
+                      color: theme.colorScheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(l10n?.translate('theme') ?? 'Theme'),
+                  subtitle: Text(_getThemeModeText(themeMode)),
+                  trailing: const Icon(CupertinoIcons.chevron_right),
+                  onTap: () => _showThemeDialog(context, ref),
                 ),
-                child: Icon(
-                  CupertinoIcons.paintbrush,
-                  color: theme.colorScheme.primary,
-                  size: 20,
+                const Divider(height: 1),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppSpacing.xs),
+                    ),
+                    child: Icon(
+                      CupertinoIcons.globe,
+                      color: theme.colorScheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(l10n?.translate('languageSettings') ?? 'Language'),
+                  subtitle: Text(_getLanguageText(ref.watch(localeServiceProvider))),
+                  trailing: const Icon(CupertinoIcons.chevron_right),
+                  onTap: () => _showLanguageDialog(context, ref),
                 ),
-              ),
-              title: const Text('Theme'),
-              subtitle: Text(_getThemeModeText(themeMode)),
-              trailing: const Icon(CupertinoIcons.chevron_right),
-              onTap: () => _showThemeDialog(context, ref),
+              ],
             ),
           ),
           
@@ -71,7 +97,7 @@ class SettingsScreen extends ConsumerWidget {
                   size: 20,
                 ),
               ),
-              title: const Text('Export Data'),
+              title: Text(l10n?.translate('export') ?? 'Export Data'),
               subtitle: const Text('Export as CSV or JSON'),
               trailing: const Icon(CupertinoIcons.chevron_right),
               onTap: () => _showExportDialog(context),
@@ -169,7 +195,7 @@ class SettingsScreen extends ConsumerWidget {
                       size: 20,
                     ),
                   ),
-                  title: const Text('Version'),
+                  title: Text(l10n?.translate('version') ?? 'Version'),
                   subtitle: const Text('1.0.0 (Build 2024.1)'),
                 ),
                 const Divider(height: 1),
@@ -186,7 +212,7 @@ class SettingsScreen extends ConsumerWidget {
                       size: 20,
                     ),
                   ),
-                  title: const Text('Terms of Service'),
+                  title: Text(l10n?.translate('termsOfService') ?? 'Terms of Service'),
                   trailing: const Icon(CupertinoIcons.chevron_right),
                   onTap: () {},
                 ),
@@ -204,7 +230,7 @@ class SettingsScreen extends ConsumerWidget {
                       size: 20,
                     ),
                   ),
-                  title: const Text('Privacy Policy'),
+                  title: Text(l10n?.translate('privacyPolicy') ?? 'Privacy Policy'),
                   trailing: const Icon(CupertinoIcons.chevron_right),
                   onTap: () {},
                 ),
@@ -222,7 +248,7 @@ class SettingsScreen extends ConsumerWidget {
                       size: 20,
                     ),
                   ),
-                  title: const Text('Rate App'),
+                  title: Text(l10n?.translate('rateApp') ?? 'Rate App'),
                   subtitle: const Text('Help us improve'),
                   trailing: const Icon(CupertinoIcons.chevron_right),
                   onTap: () {},
@@ -263,6 +289,17 @@ class SettingsScreen extends ConsumerWidget {
         return 'Dark';
       case ThemeMode.system:
         return 'System';
+    }
+  }
+
+  String _getLanguageText(Locale locale) {
+    switch (locale.languageCode) {
+      case 'en':
+        return '🇬🇧  English';
+      case 'de':
+        return '🇦🇹  Deutsch';
+      default:
+        return '🇬🇧  English';
     }
   }
 
@@ -318,6 +355,95 @@ class SettingsScreen extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context, WidgetRef ref) {
+    final localeService = ref.read(localeServiceProvider.notifier);
+    final currentLocale = ref.read(localeServiceProvider);
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: AppSpacing.md),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Text(
+                l10n?.translate('selectLanguage') ?? 'Select Language',
+                style: theme.textTheme.titleLarge,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: currentLocale.languageCode == 'en' 
+                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('🇬🇧', style: TextStyle(fontSize: 24)),
+              ),
+              title: const Text('English'),
+              subtitle: const Text('United Kingdom'),
+              trailing: currentLocale.languageCode == 'en'
+                  ? Icon(CupertinoIcons.checkmark_circle_fill, 
+                         color: theme.colorScheme.primary)
+                  : null,
+              onTap: () {
+                localeService.setLocale(const Locale('en'));
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: currentLocale.languageCode == 'de' 
+                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('🇦🇹', style: TextStyle(fontSize: 24)),
+              ),
+              title: const Text('Deutsch'),
+              subtitle: const Text('Österreich'),
+              trailing: currentLocale.languageCode == 'de'
+                  ? Icon(CupertinoIcons.checkmark_circle_fill, 
+                         color: theme.colorScheme.primary)
+                  : null,
+              onTap: () {
+                localeService.setLocale(const Locale('de'));
+                Navigator.pop(context);
+              },
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + AppSpacing.md),
+          ],
+        ),
       ),
     );
   }

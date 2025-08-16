@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../l10n/app_localizations.dart';
 import '../../navigation/main_nav_shell.dart';
 import '../../services/auth_service.dart';
 import '../auth/auth_screen.dart';
@@ -125,6 +126,7 @@ class _LaunchScreenState extends ConsumerState<LaunchScreen>
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context);
     
     return Scaffold(
       body: Container(
@@ -191,7 +193,7 @@ class _LaunchScreenState extends ConsumerState<LaunchScreen>
                     child: Column(
                       children: [
                         Text(
-                          'Pfandler',
+                          l10n?.appName ?? 'Pfandler',
                           style: Theme.of(context).textTheme.displayMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: isDarkMode ? Colors.white : AppColors.primaryLight,
@@ -200,7 +202,7 @@ class _LaunchScreenState extends ConsumerState<LaunchScreen>
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
-                          'Bottle Return Manager',
+                          l10n?.translate('welcomeDescription') ?? 'Bottle Return Manager',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             color: isDarkMode 
                               ? Colors.white.withValues(alpha: 0.8)

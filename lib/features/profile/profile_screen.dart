@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../services/auth_service.dart';
 import '../../services/sync_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../auth/sign_in_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -14,6 +15,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final authState = ref.watch(authProvider);
     final currentUser = ref.watch(currentUserProvider);
     final bottlesAsync = ref.watch(bottlesProvider);
@@ -42,7 +44,7 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text(l10n?.profile ?? 'Profile'),
         leading: IconButton(
           icon: const Icon(CupertinoIcons.back),
           onPressed: () {
@@ -86,12 +88,12 @@ class ProfileScreen extends ConsumerWidget {
                   Text(
                     currentUser?.displayName ?? 
                     currentUser?.email.split('@').first ?? 
-                    'Guest User',
+                    l10n?.translate('guestUser') ?? 'Guest User',
                     style: theme.textTheme.headlineSmall,
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    currentUser?.email ?? 'Not signed in',
+                    currentUser?.email ?? l10n?.translate('notSignedIn') ?? 'Not signed in',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.textTheme.bodySmall?.color,
                     ),
@@ -116,7 +118,7 @@ class ProfileScreen extends ConsumerWidget {
                       );
                     },
                     icon: const Icon(CupertinoIcons.person_badge_plus),
-                    label: const Text('Sign In to Sync Data'),
+                    label: Text(l10n?.translate('signInToSync') ?? 'Sign In to Sync Data'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         vertical: AppSpacing.md,
@@ -140,7 +142,7 @@ class ProfileScreen extends ConsumerWidget {
                   _buildStatColumn(
                     context, 
                     totalBottles.toString(), 
-                    'Total Bottles'
+                    l10n?.totalBottles ?? 'Total Bottles'
                   ),
                   Container(
                     height: 40,
@@ -150,7 +152,7 @@ class ProfileScreen extends ConsumerWidget {
                   _buildStatColumn(
                     context, 
                     '€${totalEarned.toStringAsFixed(2)}', 
-                    'Total Earned'
+                    l10n?.totalEarned ?? 'Total Earned'
                   ),
                   Container(
                     height: 40,
@@ -160,7 +162,7 @@ class ProfileScreen extends ConsumerWidget {
                   _buildStatColumn(
                     context, 
                     storeCount.toString(), 
-                    'Stores'
+                    l10n?.translate('stores') ?? 'Stores'
                   ),
                 ],
               ),
@@ -175,116 +177,6 @@ class ProfileScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (authState.isAuthenticated) ...[
-                    Text(
-                      'Account Settings',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    _buildSettingItem(
-                      context,
-                      icon: CupertinoIcons.person,
-                      title: 'Edit Profile',
-                      onTap: () {
-                        // TODO: Implement edit profile
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Edit profile coming soon'),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildSettingItem(
-                      context,
-                      icon: CupertinoIcons.bell,
-                      title: 'Notifications',
-                      onTap: () {
-                        // TODO: Implement notifications settings
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Notification settings coming soon'),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildSettingItem(
-                      context,
-                      icon: CupertinoIcons.lock,
-                      title: 'Privacy',
-                      onTap: () {
-                        // TODO: Implement privacy settings
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Privacy settings coming soon'),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                  _buildSettingItem(
-                    context,
-                    icon: CupertinoIcons.globe,
-                    title: 'Language',
-                    subtitle: 'English',
-                    onTap: () {
-                      // TODO: Implement language settings
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Language settings coming soon'),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Support',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _buildSettingItem(
-                    context,
-                    icon: CupertinoIcons.question_circle,
-                    title: 'Help & FAQ',
-                    onTap: () {
-                      // TODO: Implement help
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Help & FAQ coming soon'),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildSettingItem(
-                    context,
-                    icon: CupertinoIcons.star,
-                    title: 'Rate App',
-                    onTap: () {
-                      // TODO: Implement rate app
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('App rating coming soon'),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildSettingItem(
-                    context,
-                    icon: CupertinoIcons.share,
-                    title: 'Share App',
-                    onTap: () {
-                      // TODO: Implement share app
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Share functionality coming soon'),
-                        ),
-                      );
-                    },
-                  ),
-                  if (authState.isAuthenticated) ...[
-                    const SizedBox(height: AppSpacing.xl),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
@@ -293,21 +185,21 @@ class ProfileScreen extends ConsumerWidget {
                           final shouldSignOut = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
-                              title: const Text('Sign Out'),
-                              content: const Text(
-                                'Are you sure you want to sign out? Your local data will be preserved.',
+                              title: Text(l10n?.signOut ?? 'Sign Out'),
+                              content: Text(
+                                l10n?.translate('signOutConfirmMessage') ?? 'Are you sure you want to sign out? Your local data will be preserved.',
                               ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(context, false),
-                                  child: const Text('Cancel'),
+                                  child: Text(l10n?.cancel ?? 'Cancel'),
                                 ),
                                 TextButton(
                                   onPressed: () => Navigator.pop(context, true),
                                   style: TextButton.styleFrom(
                                     foregroundColor: AppColors.error,
                                   ),
-                                  child: const Text('Sign Out'),
+                                  child: Text(l10n?.signOut ?? 'Sign Out'),
                                 ),
                               ],
                             ),
@@ -317,15 +209,15 @@ class ProfileScreen extends ConsumerWidget {
                             await ref.read(authProvider.notifier).logout();
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Signed out successfully'),
+                                SnackBar(
+                                  content: Text(l10n?.translate('signedOutSuccess') ?? 'Signed out successfully'),
                                 ),
                               );
                             }
                           }
                         },
                         icon: const Icon(CupertinoIcons.square_arrow_left),
-                        label: const Text('Sign Out'),
+                        label: Text(l10n?.signOut ?? 'Sign Out'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.error,
                           side: const BorderSide(color: AppColors.error),
@@ -360,40 +252,6 @@ class ProfileScreen extends ConsumerWidget {
           style: theme.textTheme.bodySmall,
         ),
       ],
-    );
-  }
-
-  Widget _buildSettingItem(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(AppSpacing.sm),
-        ),
-        child: Icon(
-          icon,
-          color: Theme.of(context).colorScheme.primary,
-          size: 20,
-        ),
-      ),
-      title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle) : null,
-      trailing: const Icon(
-        CupertinoIcons.chevron_right,
-        size: 16,
-      ),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 0,
-        vertical: AppSpacing.xs,
-      ),
     );
   }
 }

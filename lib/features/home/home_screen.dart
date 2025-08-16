@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/utils/map_clustering.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/store.dart';
 import '../../navigation/main_nav_shell.dart';
 import '../../services/location_service.dart';
@@ -42,6 +43,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selectedStore = ref.watch(selectedStoreProvider);
     final mapCenter = ref.watch(mapCenterProvider);
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     // Use search results if searching, otherwise use nearby stores based on map center
     final storesAsync = isSearching && searchQuery.isNotEmpty
@@ -53,8 +55,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: isSearching
             ? TextField(
                 autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Search stores...',
+                decoration: InputDecoration(
+                  hintText: l10n?.translate('searchStores') ?? 'Search stores...',
                   border: InputBorder.none,
                 ),
                 onChanged: (value) {
@@ -64,7 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ref.read(isSearchingProvider.notifier).state = false;
                 },
               )
-            : const Text('Find Return Locations'),
+            : Text(l10n?.translate('findReturnLocations') ?? 'Find Return Locations'),
         leading: IconButton(
           icon: const Icon(CupertinoIcons.bars),
           onPressed: () {
@@ -251,6 +253,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showStoreDetails(BuildContext context, Store store) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     showModalBottomSheet(
       context: context,
@@ -323,7 +326,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     // Store address
                     Text(
-                      'Address',
+                      l10n?.translate('address') ?? 'Address',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -360,7 +363,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     // Accepted types
                     Text(
-                      'Accepted Deposit Types',
+                      l10n?.translate('acceptedDepositTypes') ?? 'Accepted Deposit Types',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -387,7 +390,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           child: OutlinedButton.icon(
                             onPressed: () => _openGoogleMaps(store),
                             icon: const Icon(CupertinoIcons.map),
-                            label: const Text('Get Directions'),
+                            label: Text(l10n?.translate('getDirections') ?? 'Get Directions'),
                           ),
                         ),
                         const SizedBox(width: AppSpacing.md),
@@ -397,7 +400,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               Navigator.pop(context);
                             },
                             icon: const Icon(CupertinoIcons.cube_box),
-                            label: const Text('Return Here'),
+                            label: Text(l10n?.translate('returnHere') ?? 'Return Here'),
                           ),
                         ),
                       ],
@@ -426,6 +429,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showClusterDetails(BuildContext context, ClusterMarker cluster) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     showModalBottomSheet(
       context: context,
@@ -482,13 +486,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${cluster.storeCount} stores in this area',
+                          l10n?.translate('storesInArea').replaceAll('{count}', cluster.storeCount.toString()) ?? '${cluster.storeCount} stores in this area',
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
-                          'Tap a store to view details',
+                          l10n?.translate('tapStoreToViewDetails') ?? 'Tap a store to view details',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.textTheme.bodySmall?.color,
                           ),
@@ -566,8 +570,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Final fallback - show error
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open maps application'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)?.translate('couldNotOpenMaps') ?? 'Could not open maps application'),
         ),
       );
     }

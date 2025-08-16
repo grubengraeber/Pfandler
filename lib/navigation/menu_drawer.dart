@@ -5,7 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
-import '../core/theme/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/bottles/bottles_screen.dart';
 import '../features/analytics/analytics_screen.dart';
@@ -18,7 +18,7 @@ class MenuDrawer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-    final themeModeNotifier = ref.read(themeModeProvider.notifier);
+    final l10n = AppLocalizations.of(context);
 
     return Drawer(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -39,18 +39,21 @@ class MenuDrawer extends ConsumerWidget {
                   : AppColors.primaryGradient,
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  width: double.infinity,
+                  height: 120,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(AppSpacing.sm),
+                    color: Colors.white.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(AppSpacing.md),
                   ),
-                  child: Image.asset(
-                    'assets/pfandler_logo.png',
-                    width: 32,
-                    height: 32,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppSpacing.md),
+                    child: Image.asset(
+                      'assets/pfandler_logo.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -58,7 +61,7 @@ class MenuDrawer extends ConsumerWidget {
                   'Pfandler',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -67,7 +70,7 @@ class MenuDrawer extends ConsumerWidget {
                   'Bottle Return Manager',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 14,
+                    fontSize: 16,
                   ),
                 ),
               ],
@@ -79,12 +82,12 @@ class MenuDrawer extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               children: [
-                _buildSectionTitle(context, 'Navigation'),
+                _buildSectionTitle(context, l10n?.translate('navigation') ?? 'Navigation'),
                 _buildMenuItem(
                   context: context,
                   icon: CupertinoIcons.map,
-                  title: 'Map',
-                  subtitle: 'Find return locations',
+                  title: l10n?.map ?? 'Map',
+                  subtitle: l10n?.translate('findReturnLocations') ?? 'Find return locations',
                   onTap: () {
                     Navigator.pop(context);
                     // Already on home/map screen
@@ -93,8 +96,8 @@ class MenuDrawer extends ConsumerWidget {
                 _buildMenuItem(
                   context: context,
                   icon: CupertinoIcons.cube_box,
-                  title: 'My Bottles',
-                  subtitle: 'View scanned bottles',
+                  title: l10n?.bottles ?? 'My Bottles',
+                  subtitle: l10n?.translate('viewScannedBottles') ?? 'View scanned bottles',
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
@@ -108,8 +111,8 @@ class MenuDrawer extends ConsumerWidget {
                 _buildMenuItem(
                   context: context,
                   icon: CupertinoIcons.chart_bar,
-                  title: 'Analytics',
-                  subtitle: 'View your statistics',
+                  title: l10n?.analytics ?? 'Analytics',
+                  subtitle: l10n?.translate('viewStatistics') ?? 'View your statistics',
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
@@ -123,8 +126,8 @@ class MenuDrawer extends ConsumerWidget {
                 _buildMenuItem(
                   context: context,
                   icon: CupertinoIcons.person,
-                  title: 'Profile',
-                  subtitle: 'Manage your account',
+                  title: l10n?.profile ?? 'Profile',
+                  subtitle: l10n?.translate('manageAccount') ?? 'Manage your account',
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
@@ -136,11 +139,11 @@ class MenuDrawer extends ConsumerWidget {
                   },
                 ),
                 const Divider(height: AppSpacing.xl),
-                _buildSectionTitle(context, 'General'),
+                _buildSectionTitle(context, l10n?.translate('general') ?? 'General'),
                 _buildMenuItem(
                   context: context,
                   icon: CupertinoIcons.settings,
-                  title: 'Settings',
+                  title: l10n?.settings ?? 'Settings',
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
@@ -151,50 +154,16 @@ class MenuDrawer extends ConsumerWidget {
                     );
                   },
                 ),
-                _buildMenuItem(
-                  context: context,
-                  icon:
-                      isDarkMode ? CupertinoIcons.sun_max : CupertinoIcons.moon,
-                  title: isDarkMode ? 'Light Mode' : 'Dark Mode',
-                  onTap: () {
-                    themeModeNotifier.toggleTheme();
-                  },
-                ),
                 const Divider(height: AppSpacing.xl),
-                _buildSectionTitle(context, 'Support'),
+                _buildSectionTitle(context, l10n?.translate('support') ?? 'Support'),
                 _buildMenuItem(
                   context: context,
                   icon: CupertinoIcons.envelope,
-                  title: 'Contact Support',
+                  title: l10n?.translate('contactSupport') ?? 'Contact Support',
                   onTap: () {
                     Navigator.pop(context);
                     _openSupportEmail(context);
                   },
-                ),
-              ],
-            ),
-          ),
-
-          // Footer
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              children: [
-                Text(
-                  'Version 1.0.0',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color
-                        ?.withValues(alpha: 0.5),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '© 2024 Pfandler',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color
-                        ?.withValues(alpha: 0.5),
-                  ),
                 ),
               ],
             ),

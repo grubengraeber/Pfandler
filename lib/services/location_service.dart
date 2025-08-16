@@ -45,44 +45,71 @@ class LocationService {
 
         // Use cache if less than 1 hour old
         if (DateTime.now().difference(cachedTime) < const Duration(hours: 1)) {
+          debugPrint('Using cached locations (${cachedData['locations'].length} stores)');
           return _parseStores(cachedData['locations']);
         }
       }
 
-      // Fetch from server
-      final response = await http.post(
-        Uri.parse('$baseUrl/location/getAustrianDepositLocations'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'lat': lat,
-          'lng': lng,
-          'maxDistanceKm': maxDistanceKm,
-        }),
-      );
+      // Try to fetch from server with timeout
+      try {
+        debugPrint('Fetching locations from server: $baseUrl');
+        final response = await http.post(
+          Uri.parse('$baseUrl/location/getAustrianDepositLocations'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'lat': lat,
+            'lng': lng,
+            'maxDistanceKm': maxDistanceKm,
+          }),
+        ).timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            debugPrint('Server request timed out after 5 seconds');
+            throw Exception('Request timeout');
+          },
+        );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        // Handle both array and object response formats
-        List<dynamic> locations = [];
-        if (data is List) {
-          locations = data;
-        } else if (data is Map && data['locations'] != null) {
-          locations = data['locations'] as List? ?? [];
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          // Handle both array and object response formats
+          List<dynamic> locations = [];
+          if (data is List) {
+            locations = data;
+          } else if (data is Map && data['locations'] != null) {
+            locations = data['locations'] as List? ?? [];
+          }
+
+          debugPrint('Received ${locations.length} locations from server');
+
+          // Cache the result
+          await cache.put(
+              cacheKey,
+              json.encode({
+                'timestamp': DateTime.now().toIso8601String(),
+                'locations': locations,
+              }));
+
+          return _parseStores(locations);
         }
-
-        // Cache the result
-        await cache.put(
-            cacheKey,
-            json.encode({
-              'timestamp': DateTime.now().toIso8601String(),
-              'locations': locations,
-            }));
-
-        return _parseStores(locations);
+        
+        debugPrint('Server returned status ${response.statusCode}');
+        throw Exception('Failed to get locations: Status ${response.statusCode}');
+      } catch (e) {
+        debugPrint('Server connection failed: $e');
+        
+        // Try to use any cached data, even if expired
+        if (cached != null) {
+          final cachedData = json.decode(cached);
+          debugPrint('Using expired cache data (${cachedData['locations'].length} stores)');
+          return _parseStores(cachedData['locations']);
+        }
+        
+        // Fall through to mock data
+        rethrow;
       }
-      throw Exception('Failed to get locations');
     } catch (e) {
       debugPrint('Error getting Austrian locations: $e');
+      debugPrint('Returning mock data as fallback');
       // Return mock data as fallback
       return _getMockStores();
     }

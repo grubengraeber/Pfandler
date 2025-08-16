@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_spacing.dart';
+import '../l10n/app_localizations.dart';
 import '../features/home/home_screen.dart';
 import '../features/bottles/manual_entry_screen.dart';
 import '../features/bottles/barcode_scanner_screen.dart';
@@ -53,6 +54,7 @@ class MainNavShell extends ConsumerWidget {
 
   void _showAddBottleMenu(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -76,7 +78,7 @@ class MainNavShell extends ConsumerWidget {
               ),
             ),
             Text(
-              'Add Bottle',
+              l10n?.addBottle ?? 'Add Bottle',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -105,11 +107,11 @@ class MainNavShell extends ConsumerWidget {
                     size: 24,
                   ),
                 ),
-                title: const Text(
-                  'Scan Barcode',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                title: Text(
+                  l10n?.scanBarcode ?? 'Scan Barcode',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text('Quick scan using camera'),
+                subtitle: Text(l10n?.translate('quickScanCamera') ?? 'Quick scan using camera'),
                 trailing: Icon(
                   CupertinoIcons.chevron_right,
                   color: theme.colorScheme.primary,
@@ -150,11 +152,11 @@ class MainNavShell extends ConsumerWidget {
                     size: 24,
                   ),
                 ),
-                title: const Text(
-                  'Manual Entry',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                title: Text(
+                  l10n?.manualEntry ?? 'Manual Entry',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text('Add bottle details manually'),
+                subtitle: Text(l10n?.translate('addBottleManually') ?? 'Add bottle details manually'),
                 trailing: Icon(
                   CupertinoIcons.chevron_right,
                   color: theme.colorScheme.secondary,
