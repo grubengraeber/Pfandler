@@ -51,53 +51,73 @@ class SyncState {
 class SyncService extends StateNotifier<SyncState> {
   final Ref ref;
   final String baseUrl = ApiConfig.baseUrl;
-  late Box<Bottle> _bottlesBox;
-  late Box _storesBox;
-  late Box _syncBox;
-  late Box _pendingBox;
+  Box<Bottle>? _bottlesBox;
+  Box? _storesBox;
+  Box? _syncBox;
+  Box? _pendingBox;
   Timer? _syncTimer;
   StreamSubscription? _connectivitySubscription;
+  bool _isInitialized = false;
+  final Completer<void> _initCompleter = Completer<void>();
 
   SyncService(this.ref) : super(SyncState()) {
     _init();
   }
 
+  Future<void> waitForInit() async {
+    if (_isInitialized) return;
+    await _initCompleter.future;
+  }
+
   Future<void> _init() async {
-    // Open Hive boxes
-    _bottlesBox = await Hive.openBox<Bottle>('bottles');
-    _storesBox = await Hive.openBox('stores');
-    _syncBox = await Hive.openBox('sync');
-    _pendingBox = await Hive.openBox('pending_sync');
-
-    // Load last sync time
-    final lastSyncString = _syncBox.get('last_sync');
-    if (lastSyncString != null) {
-      state = state.copyWith(
-        lastSync: DateTime.parse(lastSyncString),
-      );
-    }
-
-    // Count pending changes
-    _updatePendingCount();
-
-    // Listen to connectivity changes
-    _connectivitySubscription =
-        Connectivity().onConnectivityChanged.listen((result) {
-      if (result.contains(ConnectivityResult.none)) {
-        state = state.copyWith(status: SyncStatus.offline);
-      } else if (state.status == SyncStatus.offline) {
-        // Back online, trigger sync
-        performSync();
+    try {
+      // Open Hive boxes
+      _bottlesBox = await Hive.openBox<Bottle>('bottles');
+      _storesBox = await Hive.openBox('stores');
+      _syncBox = await Hive.openBox('sync');
+      _pendingBox = await Hive.openBox('pending_sync');
+      
+      _isInitialized = true;
+      if (!_initCompleter.isCompleted) {
+        _initCompleter.complete();
       }
-    });
 
-    // Start periodic sync (every 5 minutes)
-    _syncTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      // Load last sync time
+      final lastSyncString = _syncBox?.get('last_sync');
+      if (lastSyncString != null) {
+        state = state.copyWith(
+          lastSync: DateTime.parse(lastSyncString),
+        );
+      }
+
+      // Count pending changes
+      _updatePendingCount();
+
+      // Listen to connectivity changes
+      _connectivitySubscription =
+          Connectivity().onConnectivityChanged.listen((result) {
+        if (result.contains(ConnectivityResult.none)) {
+          state = state.copyWith(status: SyncStatus.offline);
+        } else if (state.status == SyncStatus.offline) {
+          // Back online, trigger sync
+          performSync();
+        }
+      });
+
+      // Start periodic sync (every 5 minutes)
+      _syncTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+        performSync();
+      });
+
+      // Initial sync
       performSync();
-    });
-
-    // Initial sync
-    performSync();
+    } catch (e) {
+      debugPrint('Failed to initialize SyncService: $e');
+      // Even if init fails, complete the completer to prevent hanging
+      if (!_initCompleter.isCompleted) {
+        _initCompleter.complete();
+      }
+    }
   }
 
   @override
@@ -108,7 +128,7 @@ class SyncService extends StateNotifier<SyncState> {
   }
 
   void _updatePendingCount() {
-    final pendingCount = _pendingBox.length;
+    final pendingCount = _pendingBox?.length ?? 0;
     state = state.copyWith(pendingChanges: pendingCount);
   }
 
@@ -134,7 +154,7 @@ class SyncService extends StateNotifier<SyncState> {
 
       // Update last sync time
       final now = DateTime.now();
-      await _syncBox.put('last_sync', now.toIso8601String());
+      await _syncBox?.put('last_sync', now.toIso8601String());
 
       state = state.copyWith(
         status: SyncStatus.success,
@@ -150,7 +170,7 @@ class SyncService extends StateNotifier<SyncState> {
   }
 
   Future<void> _syncPendingChanges(String authToken) async {
-    final pendingScans = _pendingBox.get('scans', defaultValue: []);
+    final pendingScans = _pendingBox?.get('scans', defaultValue: []) ?? [];
 
     if (pendingScans.isNotEmpty) {
       // Bulk upload pending scans
@@ -166,7 +186,7 @@ class SyncService extends StateNotifier<SyncState> {
       );
 
       if (response.statusCode == 200) {
-        await _pendingBox.delete('scans');
+        await _pendingBox?.delete('scans');
         _updatePendingCount();
       } else {
         throw Exception('Failed to sync pending scans');
@@ -220,7 +240,7 @@ class SyncService extends StateNotifier<SyncState> {
                 : null,
           );
 
-          await _bottlesBox.put(bottle.id, bottle);
+          await _bottlesBox?.put(bottle.id, bottle);
         }
       }
     } catch (e) {
@@ -246,10 +266,10 @@ class SyncService extends StateNotifier<SyncState> {
         final locations = data['locations'] as List;
 
         // Clear and update stores
-        await _storesBox.clear();
+        await _storesBox?.clear();
 
         for (final locationData in locations) {
-          await _storesBox.put(
+          await _storesBox?.put(
             locationData['id'].toString(),
             locationData,
           );
@@ -283,11 +303,11 @@ class SyncService extends StateNotifier<SyncState> {
   // Add bottle locally with pending sync
   Future<void> addBottleLocally(Bottle bottle) async {
     // Save to local database
-    await _bottlesBox.put(bottle.id, bottle);
+    await _bottlesBox?.put(bottle.id, bottle);
 
     // Add to pending sync queue
     final pendingScans =
-        _pendingBox.get('scans', defaultValue: <dynamic>[]) as List;
+        (_pendingBox?.get('scans', defaultValue: <dynamic>[]) ?? <dynamic>[]) as List;
     pendingScans.add({
       'barcode': bottle.barcode,
       'volumeML': (bottle.volume * 1000).toInt(),
@@ -297,7 +317,7 @@ class SyncService extends StateNotifier<SyncState> {
       'scannedAt': bottle.scannedAt.toIso8601String(),
     });
 
-    await _pendingBox.put('scans', pendingScans);
+    await _pendingBox?.put('scans', pendingScans);
     _updatePendingCount();
 
     // Try to sync immediately
@@ -308,7 +328,7 @@ class SyncService extends StateNotifier<SyncState> {
   Future<Map<String, dynamic>?> scanBarcode(String barcode) async {
     try {
       // First check local cache
-      final cachedProduct = _syncBox.get('product_$barcode');
+      final cachedProduct = _syncBox?.get('product_$barcode');
       if (cachedProduct != null) {
         return json.decode(cachedProduct);
       }
@@ -326,7 +346,7 @@ class SyncService extends StateNotifier<SyncState> {
           final data = json.decode(response.body);
 
           // Cache the product
-          await _syncBox.put('product_$barcode', json.encode(data));
+          await _syncBox?.put('product_$barcode', json.encode(data));
 
           return data;
         }
@@ -342,7 +362,7 @@ class SyncService extends StateNotifier<SyncState> {
           final data = json.decode(externalResponse.body);
 
           // Cache the product
-          await _syncBox.put('product_$barcode', json.encode(data));
+          await _syncBox?.put('product_$barcode', json.encode(data));
 
           return data;
         }
@@ -356,7 +376,7 @@ class SyncService extends StateNotifier<SyncState> {
 
   // Get stats from local data
   Future<Map<String, dynamic>> getLocalStats() async {
-    final bottles = _bottlesBox.values.toList();
+    final bottles = _bottlesBox?.values.toList() ?? [];
 
     final totalBottles = bottles.length;
     final returnedBottles = bottles.where((b) => b.isReturned).length;
@@ -402,13 +422,15 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
 // Bottles provider for accessing user's bottles
 final bottlesProvider = FutureProvider<List<Bottle>>((ref) async {
   final syncService = ref.read(syncServiceProvider.notifier);
-  return syncService._bottlesBox.values.toList();
+  await syncService.waitForInit();
+  return syncService._bottlesBox?.values.toList() ?? [];
 });
 
 // Stores provider for accessing stores
 final storesProvider = FutureProvider<List<dynamic>>((ref) async {
   final syncService = ref.read(syncServiceProvider.notifier);
-  return syncService._storesBox.values.toList();
+  await syncService.waitForInit();
+  return syncService._storesBox?.values.toList() ?? [];
 });
 
 final lastSyncProvider = Provider<DateTime?>((ref) {

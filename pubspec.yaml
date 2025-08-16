@@ -59,6 +59,8 @@ dependencies:
   intl: ^0.19.0
   cached_network_image: ^3.4.1
   share_plus: ^10.1.2
+  screenshot: ^3.0.0
+  path: ^1.9.0
   
   # Authentication and networking
   http: ^1.2.2

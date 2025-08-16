@@ -1,7 +1,12 @@
+import 'dart:io';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path/path.dart' as path;
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -48,89 +53,150 @@ final bottleStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
     );
 
     String mostCommonType = 'Unknown';
-    if (breakdown['breakdown'] != null &&
-        (breakdown['breakdown'] as List).isNotEmpty) {
-      final types = breakdown['breakdown'] as List;
-      types.sort((a, b) => (b['count'] ?? 0).compareTo(a['count'] ?? 0));
-      mostCommonType = types.first['type'] ?? 'Unknown';
+    if (breakdown.isNotEmpty) {
+      var maxCount = 0;
+      breakdown.forEach((type, count) {
+        if (count > maxCount) {
+          maxCount = count;
+          mostCommonType = type;
+        }
+      });
     }
 
+    final daysSinceStart = now.difference(startOfMonth).inDays + 1;
+    final avgPerDay = totals['totalCount'] / daysSinceStart;
+
     return {
-      'totalBottles': totals['totalBottles'] ?? 0,
+      'totalBottles': totals['totalCount'] ?? 0,
       'totalValue': totals['totalValue'] ?? 0.0,
-      'averagePerDay': totals['averagePerDay'] ?? 0.0,
+      'averagePerDay': avgPerDay,
       'mostCommonType': mostCommonType,
     };
   } catch (e) {
-    // Fallback to local data if server fails
-    final syncService = ref.read(syncServiceProvider.notifier);
-    return await syncService.getLocalStats();
+    // Fall back to local sync data if server request fails
+    final bottles = await ref.read(bottlesProvider.future);
+    
+    if (bottles.isEmpty) {
+      return {
+        'totalBottles': 0,
+        'totalValue': 0.0,
+        'averagePerDay': 0.0,
+        'mostCommonType': 'Unknown',
+      };
+    }
+
+    final totalValue = bottles.fold<double>(
+      0, (sum, bottle) => sum + bottle.depositAmount
+    );
+
+    // Calculate average per day
+    final oldestBottle = bottles.reduce((a, b) => 
+      a.scannedAt.isBefore(b.scannedAt) ? a : b
+    );
+    final daysSinceFirst = DateTime.now().difference(oldestBottle.scannedAt).inDays + 1;
+    final avgPerDay = bottles.length / daysSinceFirst;
+
+    // Find most common type
+    final typeCount = <String, int>{};
+    for (final bottle in bottles) {
+      typeCount[bottle.typeLabel] = (typeCount[bottle.typeLabel] ?? 0) + 1;
+    }
+    String mostCommonType = 'Unknown';
+    if (typeCount.isNotEmpty) {
+      mostCommonType = typeCount.entries
+          .reduce((a, b) => a.value > b.value ? a : b)
+          .key;
+    }
+
+    return {
+      'totalBottles': bottles.length,
+      'totalValue': totalValue,
+      'averagePerDay': avgPerDay,
+      'mostCommonType': mostCommonType,
+    };
   }
 });
 
-final chartDataProvider =
-    FutureProvider.family<List<FlSpot>, AnalyticsPeriod>((ref, period) async {
-  final statsService = ref.read(statsServiceProvider);
-  final now = DateTime.now();
+// Chart data providers
+final chartDataProvider = FutureProvider<List<FlSpot>>((ref) async {
+  final period = ref.watch(analyticsPeriodProvider);
+  final authState = ref.read(authProvider);
+  
+  if (!authState.isAuthenticated) {
+    return [];
+  }
 
-  DateTime startDate;
-  DateTime endDate;
-
+  // Generate appropriate date range based on period
+  int dataPoints;
+  
   switch (period) {
     case AnalyticsPeriod.daily:
-      startDate = DateTime(now.year, now.month, now.day);
-      endDate = startDate.add(const Duration(days: 1));
+      dataPoints = 7;
       break;
     case AnalyticsPeriod.weekly:
-      startDate = now.subtract(Duration(days: now.weekday - 1));
-      endDate = startDate.add(const Duration(days: 7));
+      dataPoints = 4;
       break;
     case AnalyticsPeriod.monthly:
-      startDate = DateTime(now.year, now.month, 1);
-      endDate = DateTime(now.year, now.month + 1, 0);
+      dataPoints = 12;
       break;
     case AnalyticsPeriod.yearly:
-      startDate = DateTime(now.year, 1, 1);
-      endDate = DateTime(now.year, 12, 31);
+      dataPoints = 5;
       break;
   }
 
-  final data = await statsService.getBreakdown(
-    breakdownBy: 'time',
-    startDate: startDate,
-    endDate: endDate,
-  );
-
-  return statsService.convertToChartData(data, period.name);
-});
-
-class DepositTypeData {
-  final String label;
-  final double value;
-  final Color color;
-  final String percentage;
-
-  DepositTypeData({
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.percentage,
-  });
-}
-
-final depositTypeDataProvider =
-    FutureProvider<List<DepositTypeData>>((ref) async {
-  final breakdownAsync = await ref.watch(containerTypeBreakdownProvider.future);
-  final breakdown = DepositTypeBreakdown.fromBreakdownData(breakdownAsync);
-
-  return breakdown
-      .map((item) => DepositTypeData(
-            label: item.label,
-            value: item.value,
-            color: item.color,
-            percentage: item.percentage,
-          ))
-      .toList();
+  // Generate chart data based on actual bottle data
+  try {
+    final bottles = await ref.read(bottlesProvider.future);
+    if (bottles.isEmpty) {
+      return List.generate(dataPoints, (index) => FlSpot(index.toDouble(), 0));
+    }
+    
+    // Group bottles by time period
+    final now = DateTime.now();
+    final counts = List.filled(dataPoints, 0);
+    
+    for (final bottle in bottles) {
+      final daysDiff = now.difference(bottle.scannedAt).inDays;
+      int index = -1;
+      
+      switch (period) {
+        case AnalyticsPeriod.daily:
+          if (daysDiff < 7) {
+            index = 6 - daysDiff;
+          }
+          break;
+        case AnalyticsPeriod.weekly:
+          final weeksDiff = daysDiff ~/ 7;
+          if (weeksDiff < 4) {
+            index = 3 - weeksDiff;
+          }
+          break;
+        case AnalyticsPeriod.monthly:
+          final monthsDiff = daysDiff ~/ 30;
+          if (monthsDiff < 12) {
+            index = 11 - monthsDiff;
+          }
+          break;
+        case AnalyticsPeriod.yearly:
+          final yearsDiff = daysDiff ~/ 365;
+          if (yearsDiff < 5) {
+            index = 4 - yearsDiff;
+          }
+          break;
+      }
+      
+      if (index >= 0 && index < dataPoints) {
+        counts[index]++;
+      }
+    }
+    
+    return List.generate(dataPoints, (index) {
+      return FlSpot(index.toDouble(), counts[index].toDouble());
+    });
+  } catch (e) {
+    // Fallback to empty data
+    return List.generate(dataPoints, (index) => FlSpot(index.toDouble(), 0));
+  }
 });
 
 class AnalyticsScreen extends ConsumerStatefulWidget {
@@ -142,13 +208,12 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   int _selectedDepositTypeIndex = -1;
+  final ScreenshotController _screenshotController = ScreenshotController();
+  bool _isSharing = false;
 
   @override
   Widget build(BuildContext context) {
-    final period = ref.watch(analyticsPeriodProvider);
-    final statsAsync = ref.watch(bottleStatsProvider);
-    final chartDataAsync = ref.watch(chartDataProvider(period));
-    final basePieDataAsync = ref.watch(depositTypeDataProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -161,196 +226,83 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(CupertinoIcons.share),
-            onPressed: () async {
-              final statsService = ref.read(statsServiceProvider);
-              final now = DateTime.now();
-              final startOfMonth = DateTime(now.year, now.month, 1);
-              final endOfMonth = DateTime(now.year, now.month + 1, 0);
-
-              await statsService.exportCSV(
-                startDate: startOfMonth,
-                endDate: endOfMonth,
-              );
-            },
+            icon: _isSharing 
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(CupertinoIcons.share),
+            onPressed: _isSharing ? null : _shareAnalytics,
           ),
         ],
       ),
       body: Consumer(
         builder: (context, ref, child) {
-          final authState = ref.watch(authProvider);
-
-          if (!authState.isAuthenticated) {
-            return const Center(
-              child: Text('Please sign in to view analytics'),
-            );
-          }
-
-          // Listen for sync status changes
-          final syncStatus = ref.watch(syncStatusProvider);
+          final statsAsync = ref.watch(bottleStatsProvider);
+          final chartDataAsync = ref.watch(chartDataProvider);
+          final depositDataAsync = ref.watch(depositPieDataProvider);
+          final basePieDataAsync = ref.watch(bottleTypePieDataProvider);
 
           return statsAsync.when(
             data: (stats) => chartDataAsync.when(
-              data: (chartData) => basePieDataAsync.when(
-                data: (basePieData) => RefreshIndicator(
-                  onRefresh: () async {
-                    // Trigger sync and refresh data
-                    final syncService = ref.read(syncServiceProvider.notifier);
-                    await syncService.performSync();
-                    ref.invalidate(bottleStatsProvider);
-                    ref.invalidate(chartDataProvider);
-                    ref.invalidate(depositTypeDataProvider);
-                  },
-                  child: SingleChildScrollView(
-                    padding: AppSpacing.pagePadding,
+              data: (chartData) => depositDataAsync.when(
+                data: (depositData) => basePieDataAsync.when(
+                  data: (basePieData) => Screenshot(
+                    controller: _screenshotController,
+                    child: Container(
+                      color: theme.scaffoldBackgroundColor,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildStatsCards(context, stats),
+                            const SizedBox(height: AppSpacing.xl),
+                            _buildPeriodSelector(context),
+                            const SizedBox(height: AppSpacing.xl),
+                            _buildTrendChart(context, chartData),
+                            const SizedBox(height: AppSpacing.xl),
+                            _buildDepositTypesChart(context, depositData),
+                            const SizedBox(height: AppSpacing.xl),
+                            _buildBottleTypesChart(context, basePieData),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (error, stack) => Center(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Sync status indicator
-                        if (syncStatus == SyncStatus.syncing)
-                          Container(
-                            padding: const EdgeInsets.all(AppSpacing.sm),
-                            margin:
-                                const EdgeInsets.only(bottom: AppSpacing.md),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary
-                                  .withValues(alpha: 0.1),
-                              borderRadius:
-                                  BorderRadius.circular(AppSpacing.sm),
-                            ),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Theme.of(context).colorScheme.primary,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.sm),
-                                Text(
-                                  'Syncing analytics data...',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                        // Summary Cards
-                        _buildSummaryCards(context, stats),
-
-                        const SizedBox(height: AppSpacing.xl),
-
-                        // Period Selector
-                        _buildPeriodSelector(context, ref),
-
-                        const SizedBox(height: AppSpacing.lg),
-
-                        // Main Chart
-                        _buildMainChart(context, period, chartData),
-
-                        const SizedBox(height: AppSpacing.xl),
-
-                        // Deposit Types Chart
-                        _buildDepositTypesChart(context, basePieData),
-
-                        const SizedBox(height: AppSpacing.xl),
-
-                        // Store Statistics (now using location breakdown)
-                        _buildStoreStatistics(context),
-
-                        const SizedBox(height: AppSpacing.xl),
-
-                        // Leaderboard Section
-                        _buildLeaderboard(context),
-
-                        const SizedBox(height: AppSpacing.xl),
+                        Icon(
+                          CupertinoIcons.exclamationmark_triangle,
+                          size: 64,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          'Error loading deposit data',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                       ],
                     ),
                   ),
                 ),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        CupertinoIcons.exclamationmark_triangle,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'Error loading pie chart data',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Pull to refresh and try again',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
+                  child: Text('Error loading deposit data: $error'),
                 ),
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      CupertinoIcons.exclamationmark_triangle,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'Error loading chart data',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Pull to refresh and try again',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
+                child: Text('Error loading chart data: $error'),
               ),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stack) => Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    CupertinoIcons.chart_bar,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Error loading stats',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Pull to refresh and try again',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
+              child: Text('Error loading stats: $error'),
             ),
           );
         },
@@ -358,7 +310,56 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
-  Widget _buildSummaryCards(BuildContext context, Map<String, dynamic> stats) {
+  Future<void> _shareAnalytics() async {
+    setState(() {
+      _isSharing = true;
+    });
+
+    try {
+      // Capture the screenshot
+      final image = await _screenshotController.capture();
+      if (image == null) {
+        throw Exception('Failed to capture screenshot');
+      }
+
+      // Save the image to a temporary file
+      final tempDir = await getTemporaryDirectory();
+      final fileName = 'pfandler_analytics_${DateTime.now().millisecondsSinceEpoch}.png';
+      final file = File(path.join(tempDir.path, fileName));
+      await file.writeAsBytes(image);
+
+      // Share the file
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Check out my Pfandler bottle return analytics!',
+        subject: 'Pfandler Analytics',
+      );
+
+      // Clean up the temporary file after a delay
+      Future.delayed(const Duration(seconds: 10), () {
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share analytics: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSharing = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildStatsCards(BuildContext context, Map<String, dynamic> stats) {
     final theme = Theme.of(context);
 
     return Column(
@@ -368,9 +369,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             Expanded(
               child: _buildStatCard(
                 context,
-                icon: CupertinoIcons.cube_box,
                 title: 'Total Bottles',
                 value: stats['totalBottles'].toString(),
+                icon: CupertinoIcons.cube_box_fill,
                 color: theme.colorScheme.primary,
               ),
             ),
@@ -378,9 +379,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             Expanded(
               child: _buildStatCard(
                 context,
-                icon: CupertinoIcons.money_euro_circle,
                 title: 'Total Value',
                 value: '€${stats['totalValue'].toStringAsFixed(2)}',
+                icon: CupertinoIcons.money_euro_circle_fill,
                 color: AppColors.success,
               ),
             ),
@@ -392,21 +393,20 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             Expanded(
               child: _buildStatCard(
                 context,
-                icon: CupertinoIcons.chart_bar,
-                title: 'Avg per Day',
-                value: stats['averagePerDay'].toString(),
-                color: AppColors.secondaryLight,
+                title: 'Avg/Day',
+                value: stats['averagePerDay'].toStringAsFixed(1),
+                icon: CupertinoIcons.chart_bar_fill,
+                color: AppColors.info,
               ),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _buildStatCard(
                 context,
-                icon: CupertinoIcons.star,
                 title: 'Most Common',
                 value: stats['mostCommonType'],
+                icon: CupertinoIcons.star_fill,
                 color: AppColors.warning,
-                isSmallText: true,
               ),
             ),
           ],
@@ -417,16 +417,15 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   Widget _buildStatCard(
     BuildContext context, {
-    required IconData icon,
     required String title,
     required String value,
+    required IconData icon,
     required Color color,
-    bool isSmallText = false,
   }) {
     final theme = Theme.of(context);
 
     return Card(
-      child: Container(
+      child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,30 +440,23 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   ),
                   child: Icon(
                     icon,
-                    color: color,
                     size: 16,
+                    color: color,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
                   title,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color
-                        ?.withValues(alpha: 0.7),
-                  ),
+                  style: theme.textTheme.bodySmall,
                 ),
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               value,
-              style: isSmallText
-                  ? theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)
-                  : theme.textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.bold),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -472,47 +464,50 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
-  Widget _buildPeriodSelector(BuildContext context, WidgetRef ref) {
-    final period = ref.watch(analyticsPeriodProvider);
+  Widget _buildPeriodSelector(BuildContext context) {
+    final theme = Theme.of(context);
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final p in AnalyticsPeriod.values)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.sm),
-              child: ChoiceChip(
-                label: Text(_getPeriodLabel(p)),
-                selected: period == p,
-                onSelected: (selected) {
-                  if (selected) {
-                    ref.read(analyticsPeriodProvider.notifier).state = p;
-                  }
-                },
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Row(
+          children: AnalyticsPeriod.values.map((period) {
+            final isSelected = ref.watch(analyticsPeriodProvider) == period;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                child: ChoiceChip(
+                  label: Text(
+                    period.name.substring(0, 1).toUpperCase() +
+                        period.name.substring(1),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.bold : null,
+                    ),
+                  ),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    if (selected) {
+                      ref.read(analyticsPeriodProvider.notifier).state = period;
+                    }
+                  },
+                  selectedColor: theme.colorScheme.primary,
+                  backgroundColor: theme.colorScheme.surface,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : null,
+                  ),
+                ),
               ),
-            ),
-        ],
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 
-  String _getPeriodLabel(AnalyticsPeriod period) {
-    switch (period) {
-      case AnalyticsPeriod.daily:
-        return 'Daily';
-      case AnalyticsPeriod.weekly:
-        return 'Weekly';
-      case AnalyticsPeriod.monthly:
-        return 'Monthly';
-      case AnalyticsPeriod.yearly:
-        return 'Yearly';
-    }
-  }
-
-  Widget _buildMainChart(
-      BuildContext context, AnalyticsPeriod period, List<FlSpot> data) {
+  Widget _buildTrendChart(BuildContext context, List<FlSpot> chartData) {
     final theme = Theme.of(context);
+    final period = ref.watch(analyticsPeriodProvider);
 
     return Card(
       child: Padding(
@@ -521,7 +516,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Bottles Returned',
+              'Return Trend',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -545,45 +540,50 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   titlesData: FlTitlesData(
                     show: true,
                     rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                     topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        interval: 10,
-                        reservedSize: 32,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            value.toInt().toString(),
-                            style: theme.textTheme.bodySmall,
-                          );
-                        },
-                      ),
+                      sideTitles: SideTitles(showTitles: false),
                     ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        reservedSize: 22,
-                        interval: _getBottomInterval(period),
+                        reservedSize: 30,
+                        interval: 1,
                         getTitlesWidget: (value, meta) {
                           return Text(
-                            _getBottomTitle(period, value),
-                            style: theme.textTheme.bodySmall,
+                            _getBottomTitle(value, period),
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: 5,
+                        reservedSize: 32,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toInt().toString(),
+                            style: const TextStyle(fontSize: 10),
                           );
                         },
                       ),
                     ),
                   ),
-                  borderData: FlBorderData(show: false),
+                  borderData: FlBorderData(
+                    show: false,
+                  ),
                   minX: 0,
-                  maxX: data.length.toDouble() - 1,
+                  maxX: chartData.length - 1,
                   minY: 0,
-                  maxY:
-                      data.map((e) => e.y).reduce((a, b) => a > b ? a : b) + 5,
+                  maxY: chartData.isEmpty 
+                      ? 10 
+                      : chartData.map((e) => e.y).reduce((a, b) => a > b ? a : b) * 1.2,
                   lineBarsData: [
                     LineChartBarData(
-                      spots: data,
+                      spots: chartData,
                       isCurved: true,
                       gradient: LinearGradient(
                         colors: [
@@ -594,13 +594,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                       barWidth: 3,
                       isStrokeCapRound: true,
                       dotData: FlDotData(
-                        show: period == AnalyticsPeriod.weekly,
+                        show: true,
                         getDotPainter: (spot, percent, barData, index) {
                           return FlDotCirclePainter(
                             radius: 4,
                             color: theme.colorScheme.primary,
                             strokeWidth: 2,
-                            strokeColor: theme.scaffoldBackgroundColor,
+                            strokeColor: theme.colorScheme.surface,
                           );
                         },
                       ),
@@ -608,8 +608,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                         show: true,
                         gradient: LinearGradient(
                           colors: [
-                            theme.colorScheme.primary.withValues(alpha: 0.2),
-                            theme.colorScheme.primary.withValues(alpha: 0.0),
+                            theme.colorScheme.primary.withValues(alpha: 0.3),
+                            theme.colorScheme.primary.withValues(alpha: 0),
                           ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -626,26 +626,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
-  double _getBottomInterval(AnalyticsPeriod period) {
+  String _getBottomTitle(double value, AnalyticsPeriod period) {
     switch (period) {
       case AnalyticsPeriod.daily:
-        return 4;
-      case AnalyticsPeriod.weekly:
-        return 1;
-      case AnalyticsPeriod.monthly:
-        return 5;
-      case AnalyticsPeriod.yearly:
-        return 1;
-    }
-  }
-
-  String _getBottomTitle(AnalyticsPeriod period, double value) {
-    switch (period) {
-      case AnalyticsPeriod.daily:
-        return '${value.toInt()}h';
-      case AnalyticsPeriod.weekly:
         final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         return value.toInt() < days.length ? days[value.toInt()] : '';
+      case AnalyticsPeriod.weekly:
+        return 'W${value.toInt() + 1}';
       case AnalyticsPeriod.monthly:
         return '${value.toInt() + 1}';
       case AnalyticsPeriod.yearly:
@@ -784,25 +771,58 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
+  Widget _buildBottleTypesChart(
+      BuildContext context, List<PieChartSectionData> pieData) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bottle Types',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Center(
+              child: SizedBox(
+                height: 200,
+                width: 200,
+                child: PieChart(
+                  PieChartData(
+                    sections: pieData,
+                    centerSpaceRadius: 50,
+                    sectionsSpace: 2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildClickableLegendItem(
     BuildContext context,
     DepositTypeData data,
     int index,
     bool isSelected,
   ) {
-    final theme = Theme.of(context);
-
     return InkWell(
       onTap: () {
         setState(() {
           _selectedDepositTypeIndex = isSelected ? -1 : index;
         });
       },
-      borderRadius: BorderRadius.circular(AppSpacing.xs),
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: AppSpacing.xxs,
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
         ),
         decoration: BoxDecoration(
           color: isSelected
@@ -810,7 +830,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               : Colors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.xs),
           border: isSelected
-              ? Border.all(color: data.color.withValues(alpha: 0.3), width: 1)
+              ? Border.all(color: data.color, width: 2)
               : null,
         ),
         child: Row(
@@ -821,246 +841,25 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               height: 12,
               decoration: BoxDecoration(
                 color: data.color,
-                borderRadius: BorderRadius.circular(2),
+                shape: BoxShape.circle,
               ),
             ),
             const SizedBox(width: AppSpacing.xs),
             Text(
               data.label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : null,
               ),
             ),
-            const SizedBox(width: AppSpacing.md),
+            const SizedBox(width: AppSpacing.xs),
             Text(
               data.percentage,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: isSelected ? data.color : null,
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).textTheme.bodySmall?.color,
+                fontWeight: isSelected ? FontWeight.bold : null,
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStoreStatistics(BuildContext context) {
-    final theme = Theme.of(context);
-    final locationBreakdownAsync = ref.watch(locationBreakdownProvider);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Top Return Locations',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            locationBreakdownAsync.when(
-              data: (data) {
-                final locations = data['breakdown'] as List? ?? [];
-                if (locations.isEmpty) {
-                  return const Text('No location data available');
-                }
-                final colors = [
-                  AppColors.primaryLight,
-                  AppColors.secondaryLight,
-                  AppColors.success,
-                  AppColors.warning,
-                  AppColors.info
-                ];
-                return Column(
-                  children:
-                      locations.take(5).toList().asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final location = entry.value;
-                    if (index > 0) {
-                      return Column(
-                        children: [
-                          const SizedBox(height: AppSpacing.sm),
-                          _buildStoreItem(
-                            context,
-                            location['location'] ?? 'Unknown',
-                            location['count'] ?? 0,
-                            colors[index % colors.length],
-                          ),
-                        ],
-                      );
-                    }
-                    return _buildStoreItem(
-                      context,
-                      location['location'] ?? 'Unknown',
-                      location['count'] ?? 0,
-                      colors[index % colors.length],
-                    );
-                  }).toList(),
-                );
-              },
-              loading: () => const CircularProgressIndicator(),
-              error: (error, stack) => Text('Error loading locations: $error'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStoreItem(
-      BuildContext context, String name, int bottles, Color color) {
-    final theme = Theme.of(context);
-    final maxBottles = 100.0;
-    final percentage = bottles / maxBottles;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                name,
-                style: theme.textTheme.bodyMedium,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Text(
-              '$bottles bottles',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        LinearProgressIndicator(
-          value: percentage.clamp(0.0, 1.0),
-          backgroundColor: color.withValues(alpha: 0.1),
-          valueColor: AlwaysStoppedAnimation<Color>(color),
-          minHeight: 6,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLeaderboard(BuildContext context) {
-    final theme = Theme.of(context);
-    final leaderboardAsync = ref.watch(monthlyLeaderboardProvider);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Monthly Leaderboard',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Icon(
-                  CupertinoIcons.star_fill,
-                  color: AppColors.warning,
-                  size: 20,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            leaderboardAsync.when(
-              data: (entries) {
-                if (entries.isEmpty) {
-                  return const Text('No leaderboard data available');
-                }
-                return Column(
-                  children: entries.take(5).map((entry) {
-                    Color rankColor;
-                    IconData rankIcon;
-                    switch (entry.rank) {
-                      case 1:
-                        rankColor = const Color(0xFFFFD700);
-                        rankIcon = CupertinoIcons.star_circle_fill;
-                        break;
-                      case 2:
-                        rankColor = const Color(0xFFC0C0C0);
-                        rankIcon = CupertinoIcons.star_circle;
-                        break;
-                      case 3:
-                        rankColor = const Color(0xFFCD7F32);
-                        rankIcon = CupertinoIcons.star_circle;
-                        break;
-                      default:
-                        rankColor =
-                            theme.textTheme.bodyMedium?.color ?? Colors.grey;
-                        rankIcon = CupertinoIcons.person_fill;
-                    }
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: rankColor.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: entry.rank <= 3
-                                  ? Icon(rankIcon, color: rankColor, size: 16)
-                                  : Text(
-                                      '${entry.rank}',
-                                      style: TextStyle(
-                                        color: rankColor,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  entry.username,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  '${entry.bottleCount} bottles',
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            '€${entry.totalValue.toStringAsFixed(2)}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.success,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
-              loading: () => const CircularProgressIndicator(),
-              error: (error, stack) =>
-                  Text('Error loading leaderboard: $error'),
             ),
           ],
         ),
@@ -1068,3 +867,116 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 }
+
+// Data classes for charts
+class DepositTypeData {
+  final String label;
+  final double value;
+  final Color color;
+  final String percentage;
+
+  DepositTypeData({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.percentage,
+  });
+}
+
+// Providers for pie chart data
+final depositPieDataProvider = FutureProvider<List<DepositTypeData>>((ref) async {
+  final bottles = await ref.read(bottlesProvider.future);
+  
+  if (bottles.isEmpty) {
+    return [
+      DepositTypeData(
+        label: 'No Data',
+        value: 1,
+        color: Colors.grey,
+        percentage: '100%',
+      ),
+    ];
+  }
+
+  // Group by deposit amount
+  final depositGroups = <double, int>{};
+  for (final bottle in bottles) {
+    depositGroups[bottle.depositAmount] = 
+        (depositGroups[bottle.depositAmount] ?? 0) + 1;
+  }
+
+  final total = bottles.length;
+  final colors = [
+    AppColors.primaryLight,
+    AppColors.secondaryLight,
+    AppColors.success,
+    AppColors.warning,
+  ];
+
+  final sortedEntries = depositGroups.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+    
+  return sortedEntries.take(4).map((entry) {
+    final index = depositGroups.keys.toList().indexOf(entry.key);
+    return DepositTypeData(
+      label: '€${entry.key.toStringAsFixed(2)}',
+      value: entry.value.toDouble(),
+      color: colors[index % colors.length],
+      percentage: '${((entry.value / total) * 100).toStringAsFixed(0)}%',
+    );
+  }).toList();
+});
+
+final bottleTypePieDataProvider = FutureProvider<List<PieChartSectionData>>((ref) async {
+  final bottles = await ref.read(bottlesProvider.future);
+  
+  if (bottles.isEmpty) {
+    return [
+      PieChartSectionData(
+        color: Colors.grey,
+        value: 1,
+        title: 'No Data',
+        radius: 60,
+        titleStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    ];
+  }
+
+  // Group by bottle type
+  final typeGroups = <String, int>{};
+  for (final bottle in bottles) {
+    typeGroups[bottle.typeLabel] = 
+        (typeGroups[bottle.typeLabel] ?? 0) + 1;
+  }
+
+  final total = bottles.length;
+  final colors = [
+    AppColors.info,
+    AppColors.success,
+    AppColors.warning,
+    AppColors.error,
+  ];
+
+  final sortedEntries = typeGroups.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+    
+  return sortedEntries.take(4).map((entry) {
+    final index = typeGroups.keys.toList().indexOf(entry.key);
+    final percentage = ((entry.value / total) * 100).toStringAsFixed(0);
+    return PieChartSectionData(
+      color: colors[index % colors.length],
+      value: entry.value.toDouble(),
+      title: '$percentage%',
+      radius: 60,
+      titleStyle: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+    );
+  }).toList();
+});
