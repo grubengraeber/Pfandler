@@ -11,14 +11,15 @@ class BarcodeScannerScreen extends ConsumerStatefulWidget {
   const BarcodeScannerScreen({super.key});
 
   @override
-  ConsumerState<BarcodeScannerScreen> createState() => _BarcodeScannerScreenState();
+  ConsumerState<BarcodeScannerScreen> createState() =>
+      _BarcodeScannerScreenState();
 }
 
 class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
   final _barcodeController = TextEditingController();
   bool _isProcessing = false;
   Map<String, dynamic>? _productInfo;
-  
+
   @override
   void dispose() {
     _barcodeController.dispose();
@@ -39,7 +40,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
     try {
       final syncService = ref.read(syncServiceProvider.notifier);
       final productData = await syncService.scanBarcode(barcode);
-      
+
       if (productData != null) {
         setState(() => _productInfo = productData);
       } else {
@@ -69,7 +70,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
 
     try {
       final syncService = ref.read(syncServiceProvider.notifier);
-      
+
       final bottle = Bottle(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         barcode: _barcodeController.text,
@@ -115,7 +116,8 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Product Not Found'),
-        content: Text('No product found for barcode: $barcode\n\nWould you like to add it manually?'),
+        content: Text(
+            'No product found for barcode: $barcode\n\nWould you like to add it manually?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -124,7 +126,8 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.of(context).pushNamed('/manual-entry', arguments: barcode);
+              Navigator.of(context)
+                  .pushNamed('/manual-entry', arguments: barcode);
             },
             child: const Text('Add Manually'),
           ),
@@ -152,7 +155,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scan Barcode'),
@@ -190,15 +193,16 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                   Text(
                     'Enter barcode manually below',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                      color: theme.textTheme.bodySmall?.color
+                          ?.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
               ),
             ),
-            
+
             const SizedBox(height: AppSpacing.xl),
-            
+
             // Manual barcode entry
             Text(
               'Or Enter Barcode Manually',
@@ -206,9 +210,9 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            
+
             const SizedBox(height: AppSpacing.md),
-            
+
             Row(
               children: [
                 Expanded(
@@ -247,9 +251,9 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: AppSpacing.xl),
-            
+
             // Product info (if found)
             if (_productInfo != null) ...[
               Card(
@@ -265,9 +269,11 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                               width: 80,
                               height: 80,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(AppSpacing.sm),
+                                borderRadius:
+                                    BorderRadius.circular(AppSpacing.sm),
                                 image: DecorationImage(
-                                  image: NetworkImage(_productInfo!['imageUrl']),
+                                  image:
+                                      NetworkImage(_productInfo!['imageUrl']),
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -277,8 +283,10 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                               width: 80,
                               height: 80,
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(AppSpacing.sm),
+                                color: theme.colorScheme.primary
+                                    .withValues(alpha: 0.1),
+                                borderRadius:
+                                    BorderRadius.circular(AppSpacing.sm),
                               ),
                               child: Icon(
                                 CupertinoIcons.cube_box,
@@ -311,12 +319,14 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                                         vertical: AppSpacing.xxs,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.success.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(AppSpacing.xs),
+                                        color: AppColors.success
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(
+                                            AppSpacing.xs),
                                       ),
                                       child: Text(
                                         '€${((_productInfo!['depositCents'] ?? 25) / 100.0).toStringAsFixed(2)}',
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           color: AppColors.success,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -329,8 +339,10 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                                         vertical: AppSpacing.xxs,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(AppSpacing.xs),
+                                        color: theme.colorScheme.primary
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(
+                                            AppSpacing.xs),
                                       ),
                                       child: Text(
                                         '${(_productInfo!['volumeML'] ?? 500)}ml',
@@ -355,9 +367,11 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                           icon: const Icon(CupertinoIcons.plus_circle_fill),
                           label: const Text('Add to Collection'),
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: AppSpacing.md),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppSpacing.md),
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.md),
                             ),
                           ),
                         ),
@@ -367,9 +381,9 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                 ),
               ),
             ],
-            
+
             const SizedBox(height: AppSpacing.xl),
-            
+
             // Tips
             Card(
               color: theme.colorScheme.primary.withValues(alpha: 0.05),

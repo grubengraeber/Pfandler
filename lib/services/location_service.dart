@@ -44,8 +44,9 @@ class LocationService {
           final cachedTime = DateTime.parse(cachedData['timestamp']);
 
           // Use cache if less than 1 hour old
-          if (DateTime.now().difference(cachedTime) < const Duration(hours: 1)) {
-              return _parseStores(cachedData['locations']);
+          if (DateTime.now().difference(cachedTime) <
+              const Duration(hours: 1)) {
+            return _parseStores(cachedData['locations']);
           }
         } catch (cacheError) {
           // Continue to fetch from server
@@ -69,7 +70,6 @@ class LocationService {
 
         return _parseStores(locations);
       } catch (e) {
-        
         // Try to use any cached data, even if expired
         if (cached != null) {
           try {
@@ -79,7 +79,7 @@ class LocationService {
             // Fall through to mock data
           }
         }
-        
+
         // Fall through to mock data
         rethrow;
       }
@@ -96,7 +96,7 @@ class LocationService {
     double maxDistanceKm = 10.0,
   }) async {
     final authToken = ref.read(authTokenProvider);
-    
+
     // Set auth token if available
     if (authToken != null) {
       _apiClient.setAuthToken(authToken);
@@ -107,7 +107,7 @@ class LocationService {
         lat: lat,
         lng: lng,
       );
-      
+
       return _parseStores(locations);
     } catch (e) {
       // Fallback to Austrian locations
@@ -129,20 +129,20 @@ class LocationService {
         lng: 13.3457,
         maxDistanceKm: 500.0, // Cover most of Austria
       );
-      
+
       if (query.isEmpty) {
         return allStores;
       }
-      
+
       // Filter stores based on query
       final lowerQuery = query.toLowerCase();
       final filteredStores = allStores.where((store) {
         return store.name.toLowerCase().contains(lowerQuery) ||
-               store.address.toLowerCase().contains(lowerQuery) ||
-               store.city.toLowerCase().contains(lowerQuery) ||
-               store.chain.name.toLowerCase().contains(lowerQuery);
+            store.address.toLowerCase().contains(lowerQuery) ||
+            store.city.toLowerCase().contains(lowerQuery) ||
+            store.chain.name.toLowerCase().contains(lowerQuery);
       }).toList();
-      
+
       return filteredStores;
     } catch (e) {
       return [];
@@ -151,55 +151,68 @@ class LocationService {
 
   // Parse store data from API response
   List<Store> _parseStores(List<dynamic> locations) {
-    return locations.map((loc) {
-      // Handle various data formats
-      Map<String, dynamic> locMap;
-      
-      if (loc is Map<String, dynamic>) {
-        locMap = loc;
-      } else if (loc is Map) {
-        // Convert non-typed Map to Map<String, dynamic>
-        try {
-          locMap = Map<String, dynamic>.from(loc);
-        } catch (e) {
-          return null;
-        }
-      } else {
-        return null;
-      }
-      
-      try {
-        final id = locMap['id']?.toString() ?? '';
-        final name = locMap['name'] ?? 'Unknown Store';
-        final chainRaw = locMap['chain'] ?? locMap['storeChain'];
-        final chain = _parseStoreChain(chainRaw);
-        final lat = _parseDouble(locMap['lat'] ?? locMap['latitude']) ?? 0.0;
-        final lng = _parseDouble(locMap['lng'] ?? locMap['longitude']) ?? 0.0;
-        final address = locMap['address']?.toString() ?? '';
-        final city = locMap['city']?.toString() ?? '';
-        final postalCode = (locMap['postalCode'] ?? locMap['postal_code'])?.toString() ?? '';
-        final acceptedTypes = _parseAcceptedTypes(locMap['acceptedTypes'] ?? locMap['accepted_types']);
-        final hasReturnMachine = locMap['hasReturnMachine'] ?? locMap['has_return_machine'] ?? true;
-        final machineCount = _parseInt(locMap['machineCount'] ?? locMap['machine_count']) ?? 1;
-        
-        return Store(
-          id: id,
-          name: name,
-          chain: chain,
-          location: LatLng(lat, lng),
-          address: address,
-          city: city,
-          postalCode: postalCode,
-          acceptedTypes: acceptedTypes,
-          hasReturnMachine: hasReturnMachine,
-          machineCount: machineCount,
-        );
-      } catch (e) {
-        return null;
-      }
-    }).where((store) => store != null).cast<Store>().toList();
+    return locations
+        .map((loc) {
+          // Handle various data formats
+          Map<String, dynamic> locMap;
+
+          if (loc is Map<String, dynamic>) {
+            locMap = loc;
+          } else if (loc is Map) {
+            // Convert non-typed Map to Map<String, dynamic>
+            try {
+              locMap = Map<String, dynamic>.from(loc);
+            } catch (e) {
+              return null;
+            }
+          } else {
+            return null;
+          }
+
+          try {
+            final id = locMap['id']?.toString() ?? '';
+            final name = locMap['name'] ?? 'Unknown Store';
+            final chainRaw = locMap['chain'] ?? locMap['storeChain'];
+            final chain = _parseStoreChain(chainRaw);
+            final lat =
+                _parseDouble(locMap['lat'] ?? locMap['latitude']) ?? 0.0;
+            final lng =
+                _parseDouble(locMap['lng'] ?? locMap['longitude']) ?? 0.0;
+            final address = locMap['address']?.toString() ?? '';
+            final city = locMap['city']?.toString() ?? '';
+            final postalCode =
+                (locMap['postalCode'] ?? locMap['postal_code'])?.toString() ??
+                    '';
+            final acceptedTypes = _parseAcceptedTypes(
+                locMap['acceptedTypes'] ?? locMap['accepted_types']);
+            final hasReturnMachine = locMap['hasReturnMachine'] ??
+                locMap['has_return_machine'] ??
+                true;
+            final machineCount =
+                _parseInt(locMap['machineCount'] ?? locMap['machine_count']) ??
+                    1;
+
+            return Store(
+              id: id,
+              name: name,
+              chain: chain,
+              location: LatLng(lat, lng),
+              address: address,
+              city: city,
+              postalCode: postalCode,
+              acceptedTypes: acceptedTypes,
+              hasReturnMachine: hasReturnMachine,
+              machineCount: machineCount,
+            );
+          } catch (e) {
+            return null;
+          }
+        })
+        .where((store) => store != null)
+        .cast<Store>()
+        .toList();
   }
-  
+
   double? _parseDouble(dynamic value) {
     if (value == null) return null;
     if (value is double) return value;
@@ -207,7 +220,7 @@ class LocationService {
     if (value is String) return double.tryParse(value);
     return null;
   }
-  
+
   int? _parseInt(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
@@ -251,7 +264,7 @@ class LocationService {
 
     // Handle different input formats
     List<dynamic> typesList = [];
-    
+
     if (types is List) {
       typesList = types;
     } else if (types is String) {
@@ -280,40 +293,44 @@ class LocationService {
     }
 
     // Parse the types list
-    final parsedTypes = typesList.map((type) {
-      final typeStr = type.toString().toLowerCase().trim();
-      switch (typeStr) {
-        case 'plastic':
-        case 'plastic_025':
-        case 'plastic_0.25':
-        case 'plastic025':
-          return AcceptedDepositType.plastic025;
-        case 'plastic_05':
-        case 'plastic_0.5':
-        case 'plastic05':
-          return AcceptedDepositType.plastic05;
-        case 'plastic_1':
-        case 'plastic_1.0':
-        case 'plastic1':
-          return AcceptedDepositType.plastic1;
-        case 'plastic_15':
-        case 'plastic_1.5':
-        case 'plastic15':
-          return AcceptedDepositType.plastic15;
-        case 'can':
-        case 'aluminum':
-        case 'cans':
-          return AcceptedDepositType.can;
-        case 'glass':
-        case 'bottle':
-          return AcceptedDepositType.glass;
-        case 'crate':
-        case 'crates':
-          return AcceptedDepositType.crate;
-        default:
-          return null;
-      }
-    }).where((type) => type != null).cast<AcceptedDepositType>().toList();
+    final parsedTypes = typesList
+        .map((type) {
+          final typeStr = type.toString().toLowerCase().trim();
+          switch (typeStr) {
+            case 'plastic':
+            case 'plastic_025':
+            case 'plastic_0.25':
+            case 'plastic025':
+              return AcceptedDepositType.plastic025;
+            case 'plastic_05':
+            case 'plastic_0.5':
+            case 'plastic05':
+              return AcceptedDepositType.plastic05;
+            case 'plastic_1':
+            case 'plastic_1.0':
+            case 'plastic1':
+              return AcceptedDepositType.plastic1;
+            case 'plastic_15':
+            case 'plastic_1.5':
+            case 'plastic15':
+              return AcceptedDepositType.plastic15;
+            case 'can':
+            case 'aluminum':
+            case 'cans':
+              return AcceptedDepositType.can;
+            case 'glass':
+            case 'bottle':
+              return AcceptedDepositType.glass;
+            case 'crate':
+            case 'crates':
+              return AcceptedDepositType.crate;
+            default:
+              return null;
+          }
+        })
+        .where((type) => type != null)
+        .cast<AcceptedDepositType>()
+        .toList();
 
     // Return parsed types or all types if none were successfully parsed
     return parsedTypes.isNotEmpty ? parsedTypes : AcceptedDepositType.values;
@@ -327,7 +344,7 @@ class LocationService {
         id: '1',
         name: 'Billa Hauptbahnhof',
         chain: StoreChain.billa,
-        location: LatLng(48.2082, 16.3738),
+        location: const LatLng(48.2082, 16.3738),
         address: 'Am Hauptbahnhof 1',
         city: 'Wien',
         postalCode: '1100',
@@ -339,7 +356,7 @@ class LocationService {
         id: '2',
         name: 'SPAR Mariahilfer Straße',
         chain: StoreChain.spar,
-        location: LatLng(48.2012, 16.3580),
+        location: const LatLng(48.2012, 16.3580),
         address: 'Mariahilfer Straße 85',
         city: 'Wien',
         postalCode: '1060',
@@ -352,7 +369,7 @@ class LocationService {
         id: '3',
         name: 'Hofer Graz',
         chain: StoreChain.hofer,
-        location: LatLng(47.0707, 15.4395),
+        location: const LatLng(47.0707, 15.4395),
         address: 'Hauptplatz 1',
         city: 'Graz',
         postalCode: '8010',
@@ -364,7 +381,7 @@ class LocationService {
         id: '4',
         name: 'Lidl Salzburg',
         chain: StoreChain.lidl,
-        location: LatLng(47.8095, 13.0550),
+        location: const LatLng(47.8095, 13.0550),
         address: 'Getreidegasse 9',
         city: 'Salzburg',
         postalCode: '5020',
@@ -376,7 +393,7 @@ class LocationService {
         id: '5',
         name: 'SPAR Innsbruck',
         chain: StoreChain.spar,
-        location: LatLng(47.2692, 11.4041),
+        location: const LatLng(47.2692, 11.4041),
         address: 'Maria-Theresien-Straße 31',
         city: 'Innsbruck',
         postalCode: '6020',
@@ -388,7 +405,7 @@ class LocationService {
         id: '6',
         name: 'Billa Plus Linz',
         chain: StoreChain.billaPlus,
-        location: LatLng(48.3069, 14.2858),
+        location: const LatLng(48.3069, 14.2858),
         address: 'Landstraße 17',
         city: 'Linz',
         postalCode: '4020',

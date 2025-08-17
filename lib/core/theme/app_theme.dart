@@ -28,17 +28,17 @@ class AppTheme {
     ),
 
     // Card Theme
-    cardTheme: CardThemeData(
+    cardTheme: const CardThemeData(
       color: AppColors.surfaceLight,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        side: const BorderSide(
+        side: BorderSide(
           color: AppColors.dividerLight,
           width: AppBorders.borderWidth,
         ),
       ),
-      margin: const EdgeInsets.all(AppSpacing.sm),
+      margin: EdgeInsets.all(AppSpacing.sm),
     ),
 
     // Elevated Button Theme
@@ -48,7 +48,7 @@ class AppTheme {
         foregroundColor: Colors.white,
         elevation: 0,
         padding: AppSpacing.buttonPadding,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: AppBorders.borderRadiusMd,
         ),
         textStyle: AppTypography.buttonText,
@@ -60,7 +60,7 @@ class AppTheme {
       style: TextButton.styleFrom(
         foregroundColor: AppColors.primaryLight,
         padding: AppSpacing.buttonPadding,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: AppBorders.borderRadiusMd,
         ),
         textStyle: AppTypography.buttonText,
@@ -76,7 +76,7 @@ class AppTheme {
           width: AppBorders.borderWidth,
         ),
         padding: AppSpacing.buttonPadding,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: AppBorders.borderRadiusMd,
         ),
         textStyle: AppTypography.buttonText,
@@ -91,37 +91,37 @@ class AppTheme {
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm,
       ),
-      border: OutlineInputBorder(
+      border: const OutlineInputBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: AppColors.dividerLight,
           width: AppBorders.borderWidth,
         ),
       ),
-      enabledBorder: OutlineInputBorder(
+      enabledBorder: const OutlineInputBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: AppColors.dividerLight,
           width: AppBorders.borderWidth,
         ),
       ),
-      focusedBorder: OutlineInputBorder(
+      focusedBorder: const OutlineInputBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: AppColors.primaryLight,
           width: AppBorders.borderWidthThick,
         ),
       ),
-      errorBorder: OutlineInputBorder(
+      errorBorder: const OutlineInputBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: AppColors.error,
           width: AppBorders.borderWidth,
         ),
       ),
-      focusedErrorBorder: OutlineInputBorder(
+      focusedErrorBorder: const OutlineInputBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: AppColors.error,
           width: AppBorders.borderWidthThick,
         ),
@@ -141,7 +141,7 @@ class AppTheme {
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
       ),
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: AppBorders.borderRadiusRound,
       ),
     ),
@@ -163,7 +163,7 @@ class AppTheme {
     ),
 
     // Dialog Theme
-    dialogTheme: DialogThemeData(
+    dialogTheme: const DialogThemeData(
       backgroundColor: AppColors.surfaceLight,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -177,7 +177,7 @@ class AppTheme {
       contentTextStyle: AppTypography.lightTextTheme.bodyMedium?.copyWith(
         color: AppColors.surfaceLight,
       ),
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: AppBorders.borderRadiusMd,
       ),
       behavior: SnackBarBehavior.floating,
@@ -207,17 +207,17 @@ class AppTheme {
     ),
 
     // Card Theme
-    cardTheme: CardThemeData(
+    cardTheme: const CardThemeData(
       color: AppColors.surfaceDark,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        side: const BorderSide(
+        side: BorderSide(
           color: AppColors.dividerDark,
           width: AppBorders.borderWidth,
         ),
       ),
-      margin: const EdgeInsets.all(AppSpacing.sm),
+      margin: EdgeInsets.all(AppSpacing.sm),
     ),
 
     // Elevated Button Theme
@@ -227,7 +227,7 @@ class AppTheme {
         foregroundColor: AppColors.backgroundDark,
         elevation: 0,
         padding: AppSpacing.buttonPadding,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: AppBorders.borderRadiusMd,
         ),
         textStyle: AppTypography.buttonText,
@@ -239,7 +239,7 @@ class AppTheme {
       style: TextButton.styleFrom(
         foregroundColor: AppColors.primaryDark,
         padding: AppSpacing.buttonPadding,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: AppBorders.borderRadiusMd,
         ),
         textStyle: AppTypography.buttonText,
@@ -255,7 +255,7 @@ class AppTheme {
           width: AppBorders.borderWidth,
         ),
         padding: AppSpacing.buttonPadding,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: AppBorders.borderRadiusMd,
         ),
         textStyle: AppTypography.buttonText,
@@ -270,37 +270,37 @@ class AppTheme {
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm,
       ),
-      border: OutlineInputBorder(
+      border: const OutlineInputBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: AppColors.dividerDark,
           width: AppBorders.borderWidth,
         ),
       ),
-      enabledBorder: OutlineInputBorder(
+      enabledBorder: const OutlineInputBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: AppColors.dividerDark,
           width: AppBorders.borderWidth,
         ),
       ),
-      focusedBorder: OutlineInputBorder(
+      focusedBorder: const OutlineInputBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: AppColors.primaryDark,
           width: AppBorders.borderWidthThick,
         ),
       ),
-      errorBorder: OutlineInputBorder(
+      errorBorder: const OutlineInputBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: AppColors.error,
           width: AppBorders.borderWidth,
         ),
       ),
-      focusedErrorBorder: OutlineInputBorder(
+      focusedErrorBorder: const OutlineInputBorder(
         borderRadius: AppBorders.borderRadiusMd,
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: AppColors.error,
           width: AppBorders.borderWidthThick,
         ),
@@ -320,7 +320,7 @@ class AppTheme {
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
       ),
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: AppBorders.borderRadiusRound,
       ),
     ),
@@ -342,7 +342,7 @@ class AppTheme {
     ),
 
     // Dialog Theme
-    dialogTheme: DialogThemeData(
+    dialogTheme: const DialogThemeData(
       backgroundColor: AppColors.surfaceDark,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -356,7 +356,7 @@ class AppTheme {
       contentTextStyle: AppTypography.darkTextTheme.bodyMedium?.copyWith(
         color: AppColors.backgroundDark,
       ),
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: AppBorders.borderRadiusMd,
       ),
       behavior: SnackBarBehavior.floating,

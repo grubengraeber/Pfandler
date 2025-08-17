@@ -5,7 +5,7 @@ import 'package:pfandler/models/store.dart';
 void main() {
   group('Store Model Tests', () {
     test('Store creation with all properties', () {
-      final location = LatLng(48.2082, 16.3738);
+      const location = LatLng(48.2082, 16.3738);
       final hours = StoreHours(
         schedule: {
           1: DayHours(openTime: 420, closeTime: 1260), // 7:00 - 21:00
@@ -17,7 +17,7 @@ void main() {
           7: DayHours(openTime: 0, closeTime: 0, isClosed: true),
         },
       );
-      
+
       final store = Store(
         id: 'store_123',
         name: 'Billa Hauptbahnhof',
@@ -61,7 +61,7 @@ void main() {
         id: 'store_456',
         name: 'Test Store',
         chain: StoreChain.spar,
-        location: LatLng(48.2, 16.3),
+        location: const LatLng(48.2, 16.3),
         address: 'Teststraße 123',
         city: 'Graz',
         postalCode: '8010',
@@ -76,7 +76,7 @@ void main() {
         id: 'store_789',
         name: 'Test Store',
         chain: StoreChain.hofer,
-        location: LatLng(48.2, 16.3),
+        location: const LatLng(48.2, 16.3),
         address: 'Test',
         city: 'Wien',
         postalCode: '1010',
@@ -125,13 +125,15 @@ void main() {
     });
 
     test('DayHours formatting', () {
-      final openHours = DayHours(openTime: 480, closeTime: 1200); // 8:00 - 20:00
+      final openHours =
+          DayHours(openTime: 480, closeTime: 1200); // 8:00 - 20:00
       expect(openHours.formattedHours, '08:00 - 20:00');
-      
+
       final closedHours = DayHours(openTime: 0, closeTime: 0, isClosed: true);
       expect(closedHours.formattedHours, 'Closed');
-      
-      final earlyHours = DayHours(openTime: 360, closeTime: 1080); // 6:00 - 18:00
+
+      final earlyHours =
+          DayHours(openTime: 360, closeTime: 1080); // 6:00 - 18:00
       expect(earlyHours.formattedHours, '06:00 - 18:00');
     });
 
@@ -140,40 +142,42 @@ void main() {
       // For a proper test, we would need to mock DateTime.now()
       final hours = StoreHours(
         schedule: {
-          DateTime.now().weekday: DayHours(openTime: 0, closeTime: 1440), // Open all day
+          DateTime.now().weekday:
+              DayHours(openTime: 0, closeTime: 1440), // Open all day
         },
       );
-      
+
       final store = Store(
         id: 'test',
         name: 'Test Store',
         chain: StoreChain.other,
-        location: LatLng(48.2, 16.3),
+        location: const LatLng(48.2, 16.3),
         address: 'Test',
         city: 'Wien',
         postalCode: '1010',
         acceptedTypes: [],
         hours: hours,
       );
-      
+
       expect(store.isOpen, true);
-      
+
       final closedStore = Store(
         id: 'test2',
         name: 'Closed Store',
         chain: StoreChain.other,
-        location: LatLng(48.2, 16.3),
+        location: const LatLng(48.2, 16.3),
         address: 'Test',
         city: 'Wien',
         postalCode: '1010',
         acceptedTypes: [],
         hours: StoreHours(
           schedule: {
-            DateTime.now().weekday: DayHours(openTime: 0, closeTime: 0, isClosed: true),
+            DateTime.now().weekday:
+                DayHours(openTime: 0, closeTime: 0, isClosed: true),
           },
         ),
       );
-      
+
       expect(closedStore.isOpen, false);
     });
 
@@ -182,14 +186,14 @@ void main() {
         id: 'no_hours',
         name: 'No Hours Store',
         chain: StoreChain.other,
-        location: LatLng(48.2, 16.3),
+        location: const LatLng(48.2, 16.3),
         address: 'Test',
         city: 'Wien',
         postalCode: '1010',
         acceptedTypes: [],
         hours: null,
       );
-      
+
       expect(store.isOpen, false);
     });
 
