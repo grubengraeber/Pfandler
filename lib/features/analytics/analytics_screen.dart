@@ -1,12 +1,9 @@
-import 'dart:io';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 // import 'package:screenshot/screenshot.dart'; // Temporarily disabled - incompatible with Flutter 3.16.0
 import 'package:share_plus/share_plus.dart';
-import 'package:path/path.dart' as path;
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';

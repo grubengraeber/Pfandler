@@ -415,6 +415,7 @@ class LocationService {
       ),
     ];
   }
+
 }
 
 // Providers

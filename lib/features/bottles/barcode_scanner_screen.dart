@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -17,24 +18,31 @@ class BarcodeScannerScreen extends ConsumerStatefulWidget {
 
 class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
   final _barcodeController = TextEditingController();
+  final MobileScannerController _scannerController = MobileScannerController(
+    detectionSpeed: DetectionSpeed.normal,
+    facing: CameraFacing.back,
+    torchEnabled: false,
+  );
+  
   bool _isProcessing = false;
+  bool _useCameraMode = true;
   Map<String, dynamic>? _productInfo;
+  String? _lastScannedBarcode;
 
   @override
   void dispose() {
     _barcodeController.dispose();
+    _scannerController.dispose();
     super.dispose();
   }
 
-  Future<void> _lookupBarcode() async {
-    final barcode = _barcodeController.text.trim();
-    if (barcode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a barcode')),
-      );
-      return;
-    }
-
+  Future<void> _processBarcode(String barcode) async {
+    // Prevent processing the same barcode multiple times
+    if (_lastScannedBarcode == barcode || _isProcessing) return;
+    
+    _lastScannedBarcode = barcode;
+    _barcodeController.text = barcode;
+    
     setState(() => _isProcessing = true);
 
     try {
@@ -42,7 +50,10 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
       final productData = await syncService.scanBarcode(barcode);
 
       if (productData != null) {
-        setState(() => _productInfo = productData);
+        setState(() {
+          _productInfo = productData;
+          _useCameraMode = false; // Switch to product view
+        });
       } else {
         // If product not found, show manual entry with barcode pre-filled
         _showManualEntryDialog(barcode);
@@ -61,6 +72,18 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
         setState(() => _isProcessing = false);
       }
     }
+  }
+
+  Future<void> _lookupBarcode() async {
+    final barcode = _barcodeController.text.trim();
+    if (barcode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a barcode')),
+      );
+      return;
+    }
+
+    await _processBarcode(barcode);
   }
 
   Future<void> _addBottle() async {
@@ -152,6 +175,15 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
     }
   }
 
+  void _resetScanner() {
+    setState(() {
+      _productInfo = null;
+      _lastScannedBarcode = null;
+      _useCameraMode = true;
+      _barcodeController.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -159,15 +191,23 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scan Barcode'),
+        actions: [
+          if (!_useCameraMode)
+            IconButton(
+              icon: const Icon(CupertinoIcons.camera),
+              onPressed: _resetScanner,
+              tooltip: 'Scan Another',
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: AppSpacing.pagePadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Scanner placeholder
+            // Camera Scanner or Manual Entry Toggle
             Container(
-              height: 250,
+              height: 350,
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(AppSpacing.lg),
@@ -176,28 +216,133 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                   width: 2,
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    CupertinoIcons.barcode_viewfinder,
-                    size: 80,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Camera Scanner Coming Soon',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Enter barcode manually below',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.textTheme.bodySmall?.color
-                          ?.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ],
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppSpacing.lg - 2),
+                child: _useCameraMode
+                    ? Stack(
+                        children: [
+                          MobileScanner(
+                            controller: _scannerController,
+                            onDetect: (capture) {
+                              final List<Barcode> barcodes = capture.barcodes;
+                              for (final barcode in barcodes) {
+                                if (barcode.rawValue != null) {
+                                  _processBarcode(barcode.rawValue!);
+                                  break;
+                                }
+                              }
+                            },
+                          ),
+                          // Scanner overlay
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.5),
+                                  Colors.transparent,
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.5),
+                                ],
+                                stops: const [0.0, 0.2, 0.8, 1.0],
+                              ),
+                            ),
+                          ),
+                          Center(
+                            child: Container(
+                              width: 250,
+                              height: 250,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: theme.colorScheme.primary,
+                                  width: 2,
+                                ),
+                                borderRadius: BorderRadius.circular(AppSpacing.md),
+                              ),
+                            ),
+                          ),
+                          // Instructions
+                          Positioned(
+                            top: AppSpacing.lg,
+                            left: 0,
+                            right: 0,
+                            child: Text(
+                              'Align barcode within frame',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          // Processing indicator
+                          if (_isProcessing)
+                            Container(
+                              color: Colors.black.withValues(alpha: 0.7),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          // Torch button
+                          Positioned(
+                            bottom: AppSpacing.lg,
+                            right: AppSpacing.lg,
+                            child: FloatingActionButton.small(
+                              onPressed: () => _scannerController.toggleTorch(),
+                              backgroundColor: theme.colorScheme.primary,
+                              child: ValueListenableBuilder(
+                                valueListenable: _scannerController.torchState,
+                                builder: (context, state, child) {
+                                  return Icon(
+                                    state == TorchState.on
+                                        ? CupertinoIcons.bolt_fill
+                                        : CupertinoIcons.bolt,
+                                    color: Colors.white,
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          // Camera switch button
+                          Positioned(
+                            bottom: AppSpacing.lg,
+                            left: AppSpacing.lg,
+                            child: FloatingActionButton.small(
+                              onPressed: () => _scannerController.switchCamera(),
+                              backgroundColor: theme.colorScheme.primary,
+                              child: const Icon(
+                                CupertinoIcons.camera_rotate,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            CupertinoIcons.checkmark_circle_fill,
+                            size: 80,
+                            color: AppColors.success,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          Text(
+                            'Barcode Scanned',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            _barcodeController.text,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
 
@@ -411,7 +556,8 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      '• Barcode is usually found near the recycling symbol\n'
+                      '• Point camera at barcode and hold steady\n'
+                      '• Use torch button in low light conditions\n'
                       '• Clean the barcode for better scanning\n'
                       '• Most Austrian deposit bottles have 13-digit EAN codes',
                       style: theme.textTheme.bodySmall,

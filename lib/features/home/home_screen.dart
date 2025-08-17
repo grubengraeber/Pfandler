@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -17,9 +18,12 @@ import '../../services/location_service.dart';
 final searchQueryProvider = StateProvider<String>((ref) => '');
 final isSearchingProvider = StateProvider<bool>((ref) => false);
 
-// Current map center provider for nearby stores
+// Current map center provider for nearby stores (Vienna as default)
 final mapCenterProvider =
     StateProvider<LatLng>((ref) => const LatLng(48.2082, 16.3738));
+
+// User's current location provider
+final userLocationProvider = StateProvider<LatLng?>((ref) => null);
 
 // Selected store provider
 final selectedStoreProvider = StateProvider<Store?>((ref) => null);
@@ -35,6 +39,119 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final MapController _mapController = MapController();
   double _currentZoom = 12.0;
   Size _mapSize = const Size(400, 600);
+  bool _isLoadingLocation = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    // Try to get user location on startup
+    _getCurrentLocation(moveMap: true);
+  }
+
+  Future<bool> _checkLocationPermission() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Test if location services are enabled.
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location services are disabled. Please enable them.'),
+          ),
+        );
+      }
+      return false;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location permissions are denied'),
+            ),
+          );
+        }
+        return false;
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Location permissions are permanently denied, please enable them in settings.',
+            ),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: () => Geolocator.openAppSettings(),
+            ),
+          ),
+        );
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> _getCurrentLocation({bool moveMap = false}) async {
+    if (_isLoadingLocation) return;
+    
+    setState(() => _isLoadingLocation = true);
+    
+    try {
+      final hasPermission = await _checkLocationPermission();
+      if (!hasPermission) {
+        setState(() => _isLoadingLocation = false);
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        forceAndroidLocationManager: true,
+      );
+
+      final userLocation = LatLng(position.latitude, position.longitude);
+      
+      // Update user location provider
+      ref.read(userLocationProvider.notifier).state = userLocation;
+      
+      if (moveMap) {
+        // Move map to user location
+        _mapController.move(userLocation, 13);
+        // Update the map center provider
+        ref.read(mapCenterProvider.notifier).state = userLocation;
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location updated'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to get location: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingLocation = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isSearching = ref.watch(isSearchingProvider);
     final selectedStore = ref.watch(selectedStoreProvider);
     final mapCenter = ref.watch(mapCenterProvider);
+    final userLocation = ref.watch(userLocationProvider);
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
 
@@ -92,405 +210,332 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             ),
             IconButton(
-              icon: const Icon(CupertinoIcons.location),
-              onPressed: () {
-                // Move to Vienna as default location
-                // In a real app, you'd get user's current location
-                const newLocation = LatLng(48.2082, 16.3738);
-                _mapController.move(newLocation, 13);
-                // Update the map center provider
-                ref.read(mapCenterProvider.notifier).state = newLocation;
-              },
+              icon: _isLoadingLocation
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      userLocation != null
+                          ? CupertinoIcons.location_fill
+                          : CupertinoIcons.location,
+                    ),
+              onPressed: _isLoadingLocation
+                  ? null
+                  : () => _getCurrentLocation(moveMap: true),
             ),
           ],
         ],
       ),
-      body: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          initialCenter:
-              const LatLng(48.2082, 16.3738), // Vienna - default start
-          initialZoom: 12, // City-level zoom
-          minZoom: 2, // Allow world view
-          maxZoom: 18,
-          cameraConstraint: CameraConstraint.contain(
-            bounds: LatLngBounds(
-              const LatLng(-85, -180), // Practical world bounds (avoid poles)
-              const LatLng(85, 180),
-            ),
-          ),
-          onTap: (_, __) {
-            ref.read(selectedStoreProvider.notifier).state = null;
-          },
-          onPositionChanged: (position, hasGesture) {
-            // Update map center and zoom when user moves the map
-            if (hasGesture && position.center != null) {
-              ref.read(mapCenterProvider.notifier).state = position.center!;
-              _currentZoom = position.zoom ?? _currentZoom;
-            }
-          },
-        ),
+      body: Stack(
         children: [
-          TileLayer(
-            urlTemplate: _getMapTileUrl(context),
-            subdomains: const ['a', 'b', 'c', 'd'],
-            additionalOptions: const {
-              'attribution': '© CartoDB © OpenStreetMap contributors',
-            },
-            userAgentPackageName: 'com.pfandler.app',
-            maxZoom: 19,
-            retinaMode: true,
-          ),
-          storesAsync.when(
-            data: (stores) {
-              // Get map size for clustering calculations
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                final renderBox = context.findRenderObject() as RenderBox?;
-                if (renderBox != null) {
-                  _mapSize = renderBox.size;
-                }
-              });
-
-              // Cluster the stores
-              final clusters = MapClustering.clusterStores(
-                stores,
-                _currentZoom,
-                mapCenter,
-                _mapSize.width,
-                _mapSize.height,
-              );
-
-              return MarkerLayer(
-                markers: clusters.map((cluster) {
-                  if (cluster.isCluster) {
-                    // Cluster marker
-                    return Marker(
-                      width: 60,
-                      height: 60,
-                      point: cluster.location,
-                      child: GestureDetector(
-                        onTap: () {
-                          _showClusterDetails(context, cluster);
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 3,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              cluster.storeCount.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  } else {
-                    // Single store marker
-                    final store = cluster.singleStore;
-                    final isSelected = selectedStore?.id == store.id;
-                    return Marker(
-                      width: isSelected ? 50 : 40,
-                      height: isSelected ? 50 : 40,
-                      point: store.location,
-                      child: GestureDetector(
-                        onTap: () {
-                          ref.read(selectedStoreProvider.notifier).state =
-                              store;
-                          _showStoreDetails(context, store);
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? theme.colorScheme.primary
-                                : _getChainColor(store.chain),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Icon(
-                              CupertinoIcons.location_solid,
-                              color: Colors.white,
-                              size: isSelected ? 24 : 20,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                }).toList(),
-              );
-            },
-            loading: () => const MarkerLayer(markers: []),
-            error: (error, stack) => const MarkerLayer(markers: []),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showStoreDetails(BuildContext context, Store store) {
-    final theme = Theme.of(context);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final l10n = AppLocalizations.of(context);
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.5,
-          decoration: BoxDecoration(
-            color: theme.scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppSpacing.lg),
-            ),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: theme.dividerColor,
-                  borderRadius: BorderRadius.circular(2),
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: userLocation ?? const LatLng(48.2082, 16.3738), // Use user location or Vienna as default
+              initialZoom: 12, // City-level zoom
+              minZoom: 2, // Allow world view
+              maxZoom: 18,
+              cameraConstraint: CameraConstraint.contain(
+                bounds: LatLngBounds(
+                  const LatLng(-85, -180), // Practical world bounds (avoid poles)
+                  const LatLng(85, 180),
                 ),
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              onTap: (_, __) {
+                ref.read(selectedStoreProvider.notifier).state = null;
+              },
+              onPositionChanged: (position, hasGesture) {
+                // Update map center and zoom when user moves the map
+                if (hasGesture && position.center != null) {
+                  ref.read(mapCenterProvider.notifier).state = position.center!;
+                  _currentZoom = position.zoom ?? _currentZoom;
+                }
+              },
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: _getMapTileUrl(context),
+                subdomains: const ['a', 'b', 'c', 'd'],
+                additionalOptions: const {
+                  'attribution': '© CartoDB © OpenStreetMap contributors',
+                },
+                userAgentPackageName: 'com.pfandler.app',
+                maxZoom: 19,
+                retinaMode: true,
+              ),
+              
+              // User location marker
+              if (userLocation != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      width: 80,
+                      height: 80,
+                      point: userLocation,
+                      child: Stack(
+                        alignment: Alignment.center,
                         children: [
+                          // Pulsing circle animation
                           Container(
-                            width: 60,
-                            height: 60,
+                            width: 80,
+                            height: 80,
                             decoration: BoxDecoration(
-                              color: _getChainColor(store.chain)
-                                  .withValues(alpha: 0.1),
-                              borderRadius:
-                                  BorderRadius.circular(AppSpacing.md),
-                            ),
-                            child: Icon(
-                              CupertinoIcons.location_solid,
-                              color: _getChainColor(store.chain),
-                              size: 32,
+                              color: Colors.blue.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
                             ),
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  store.name,
-                                  style:
-                                      theme.textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  _getLocalizedChainName(context, store.chain),
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.textTheme.bodySmall?.color,
-                                  ),
+                          // Accuracy circle
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.3),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          // Center dot
+                          Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: AppSpacing.lg),
+                    ),
+                  ],
+                ),
+              
+              // Store markers
+              storesAsync.when(
+                data: (stores) {
+                  // Get map size for clustering calculations
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    final renderBox = context.findRenderObject() as RenderBox?;
+                    if (renderBox != null) {
+                      _mapSize = renderBox.size;
+                    }
+                  });
 
-                      // Store address
-                      Text(
-                        l10n?.translate('address') ?? 'Address',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Container(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface,
-                          borderRadius: BorderRadius.circular(AppSpacing.sm),
-                          border: Border.all(
-                            color: theme.dividerColor.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              CupertinoIcons.location,
-                              color: theme.colorScheme.primary,
-                              size: 16,
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                store.address,
-                                style: theme.textTheme.bodyMedium,
+                  // Cluster the stores
+                  final clusters = MapClustering.clusterStores(
+                    stores,
+                    _currentZoom,
+                    mapCenter,
+                    _mapSize.width,
+                    _mapSize.height,
+                  );
+
+                  return MarkerLayer(
+                    markers: clusters.map((cluster) {
+                      if (cluster.isCluster) {
+                        // Cluster marker
+                        return Marker(
+                          width: 60,
+                          height: 60,
+                          point: cluster.location,
+                          child: GestureDetector(
+                            onTap: () {
+                              _showClusterDetails(context, cluster);
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  cluster.storeCount.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      } else {
+                        // Single store marker
+                        final store = cluster.stores.first;
+                        final isSelected = selectedStore?.id == store.id;
 
-                      const SizedBox(height: AppSpacing.lg),
-
-                      // Accepted types
-                      Text(
-                        l10n?.translate('acceptedDepositTypes') ??
-                            'Accepted Deposit Types',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        spacing: AppSpacing.sm,
-                        runSpacing: AppSpacing.sm,
-                        children: store.acceptedTypes.map((type) {
-                          return Chip(
-                            label:
-                                Text(_getLocalizedDepositType(context, type)),
-                            backgroundColor: theme.colorScheme.primary
-                                .withValues(alpha: 0.1),
-                          );
-                        }).toList(),
-                      ),
-
-                      const SizedBox(height: AppSpacing.xl),
-
-                      // Action buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _openGoogleMaps(store),
-                              icon: const Icon(CupertinoIcons.map),
-                              label: Text(l10n?.translate('getDirections') ??
-                                  'Get Directions'),
+                        return Marker(
+                          width: isSelected ? 70 : 50,
+                          height: isSelected ? 70 : 50,
+                          point: cluster.location,
+                          child: GestureDetector(
+                            onTap: () {
+                              ref.read(selectedStoreProvider.notifier).state =
+                                  store;
+                              _showStoreDetails(context, store);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : AppColors.success,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: isSelected ? 3 : 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: isSelected ? 12 : 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                CupertinoIcons.location_solid,
+                                color: Colors.white,
+                                size: 24,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              icon: const Icon(CupertinoIcons.cube_box),
-                              label: Text(l10n?.translate('returnHere') ??
-                                  'Return Here'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        );
+                      }
+                    }).toList(),
+                  );
+                },
+                loading: () => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+                error: (error, stack) => Center(
+                  child: Text('Error loading stores: $error'),
                 ),
               ),
             ],
           ),
-        );
-      },
+          
+          // Floating action button for current location
+          Positioned(
+            bottom: AppSpacing.xl,
+            right: AppSpacing.lg,
+            child: FloatingActionButton(
+              onPressed: _isLoadingLocation
+                  ? null
+                  : () => _getCurrentLocation(moveMap: true),
+              backgroundColor: theme.colorScheme.primary,
+              child: _isLoadingLocation
+                  ? const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    )
+                  : Icon(
+                      userLocation != null
+                          ? CupertinoIcons.location_fill
+                          : CupertinoIcons.location,
+                      color: Colors.white,
+                    ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   String _getMapTileUrl(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    if (isDarkMode) {
-      // CartoDB Dark Matter - Beautiful dark theme
-      return 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}{r}.png';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark) {
+      // Dark mode map tiles - CartoDB Dark Matter
+      return 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png';
     } else {
-      // CartoDB Positron - Clean light theme
-      return 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}{r}.png';
+      // Light mode map tiles - CartoDB Positron
+      return 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png';
     }
   }
 
-  void _showClusterDetails(BuildContext context, ClusterMarker cluster) {
+  void _showStoreDetails(BuildContext context, Store store) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        final l10n = AppLocalizations.of(context);
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: BoxDecoration(
-            color: theme.scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppSpacing.lg),
-            ),
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppSpacing.xl),
           ),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: theme.dividerColor,
-                  borderRadius: BorderRadius.circular(2),
+        ),
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.35,
+          minChildSize: 0.25,
+          maxChildSize: 0.75,
+          expand: false,
+          builder: (context, scrollController) => SingleChildScrollView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.dividerColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Row(
+                const SizedBox(height: AppSpacing.lg),
+
+                // Store info
+                Row(
                   children: [
                     Container(
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 3,
-                        ),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppSpacing.md),
                       ),
-                      child: Center(
-                        child: Text(
-                          cluster.storeCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
+                      child: Icon(
+                        CupertinoIcons.shopping_cart,
+                        color: theme.colorScheme.primary,
+                        size: 30,
                       ),
                     ),
                     const SizedBox(width: AppSpacing.md),
@@ -499,18 +544,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            l10n?.translate('storesInArea').replaceAll(
-                                    '{count}', cluster.storeCount.toString()) ??
-                                '${cluster.storeCount} stores in this area',
-                            style: theme.textTheme.headlineSmall?.copyWith(
+                            store.name,
+                            style: theme.textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          const SizedBox(height: AppSpacing.xxs),
                           Text(
-                            l10n?.translate('tapStoreToViewDetails') ??
-                                'Tap a store to view details',
+                            store.chain.name,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.textTheme.bodySmall?.color,
+                              color: theme.textTheme.bodyMedium?.color
+                                  ?.withValues(alpha: 0.7),
                             ),
                           ),
                         ],
@@ -518,139 +562,262 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ],
                 ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                  itemCount: cluster.stores.length,
-                  itemBuilder: (context, index) {
-                    final store = cluster.stores[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: ListTile(
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: _getChainColor(store.chain)
-                                .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(AppSpacing.xs),
-                          ),
-                          child: Icon(
-                            CupertinoIcons.location_solid,
-                            color: _getChainColor(store.chain),
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(store.name),
-                        subtitle:
-                            Text('${store.chain.name} • ${store.address}'),
-                        trailing: IconButton(
-                          icon: const Icon(CupertinoIcons.map),
-                          onPressed: () => _openGoogleMaps(store),
-                        ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          ref.read(selectedStoreProvider.notifier).state =
-                              store;
-                          _showStoreDetails(context, store);
-                        },
+
+                const SizedBox(height: AppSpacing.lg),
+
+                // Address
+                _buildInfoRow(
+                  context,
+                  CupertinoIcons.location,
+                  store.address,
+                ),
+
+                if (store.hours != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _buildInfoRow(
+                    context,
+                    CupertinoIcons.clock,
+                    store.hours!.toString(),
+                  ),
+                ],
+
+                const SizedBox(height: AppSpacing.lg),
+
+                // Accepted types
+                Text(
+                  l10n?.translate('acceptedTypes') ?? 'Accepted Types',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: store.acceptedTypes.map((type) {
+                    return Chip(
+                      label: Text(type.label),
+                      backgroundColor:
+                          theme.colorScheme.primary.withValues(alpha: 0.1),
+                      labelStyle: TextStyle(
+                        color: theme.colorScheme.primary,
                       ),
                     );
-                  },
+                  }).toList(),
                 ),
-              ),
-            ],
+
+                const SizedBox(height: AppSpacing.lg),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _openDirections(store),
+                        icon: const Icon(CupertinoIcons.map),
+                        label: Text(
+                            l10n?.translate('getDirections') ?? 'Directions'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                        ),
+                      ),
+                    ),
+                    if (store.phoneNumber != null) ...[
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _callStore(store),
+                          icon: const Icon(CupertinoIcons.phone),
+                          label: Text(l10n?.translate('call') ?? 'Call'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Future<void> _openGoogleMaps(Store store) async {
-    final lat = store.location.latitude;
-    final lng = store.location.longitude;
-    final query = Uri.encodeComponent('${store.name}, ${store.address}');
+  void _showClusterDetails(BuildContext context, ClusterMarker cluster) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
-    // Try different URL schemes in order of preference
-    final urls = [
-      'comgooglemaps://?q=$lat,$lng($query)', // Google Maps app
-      'maps://maps.google.com/maps?q=$lat,$lng($query)', // iOS Maps with Google
-      'https://maps.google.com/maps?q=$lat,$lng($query)', // Web fallback
-    ];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppSpacing.xl),
+        ),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
 
-    for (final urlString in urls) {
-      final uri = Uri.parse(urlString);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        return;
+            Text(
+              '${cluster.storeCount} ${l10n?.translate('stores') ?? 'Stores'}',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // List of stores in cluster
+            Expanded(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: cluster.stores.length,
+                separatorBuilder: (context, index) => const Divider(),
+                itemBuilder: (context, index) {
+                  final store = cluster.stores[index];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppSpacing.sm),
+                      ),
+                      child: Icon(
+                        CupertinoIcons.shopping_cart,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                    title: Text(store.name),
+                    subtitle: Text(store.address),
+                    trailing: const Icon(CupertinoIcons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(context);
+                      ref.read(selectedStoreProvider.notifier).state = store;
+                      _showStoreDetails(context, store);
+                    },
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.md),
+
+            // Zoom in button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _mapController.move(cluster.location, _currentZoom + 2);
+                },
+                icon: const Icon(CupertinoIcons.zoom_in),
+                label: Text(l10n?.translate('zoomIn') ?? 'Zoom In'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(BuildContext context, IconData icon, String text) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openDirections(Store store) async {
+    final userLocation = ref.read(userLocationProvider);
+    String url;
+    
+    if (userLocation != null) {
+      // If we have user location, create directions from current location
+      url = 'https://www.google.com/maps/dir/${userLocation.latitude},${userLocation.longitude}/${store.location.latitude},${store.location.longitude}';
+    } else {
+      // Otherwise just show the store location
+      url = 'https://www.google.com/maps/search/?api=1&query=${store.location.latitude},${store.location.longitude}';
+    }
+    
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open maps')),
+        );
       }
     }
-
-    // Final fallback - show error
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              AppLocalizations.of(context)?.translate('couldNotOpenMaps') ??
-                  'Could not open maps application'),
-        ),
-      );
-    }
   }
 
-  String _getLocalizedDepositType(
-      BuildContext context, AcceptedDepositType type) {
-    final l10n = AppLocalizations.of(context);
-    switch (type) {
-      case AcceptedDepositType.plastic025:
-        return l10n?.translate('plastic025') ?? 'Plastic 0.25L';
-      case AcceptedDepositType.plastic05:
-        return l10n?.translate('plastic05') ?? 'Plastic 0.5L';
-      case AcceptedDepositType.plastic1:
-        return l10n?.translate('plastic1') ?? 'Plastic 1L';
-      case AcceptedDepositType.plastic15:
-        return l10n?.translate('plastic15') ?? 'Plastic 1.5L';
-      case AcceptedDepositType.glass:
-        return l10n?.translate('glass') ?? 'Glass';
-      case AcceptedDepositType.can:
-        return l10n?.translate('cans') ?? 'Cans';
-      case AcceptedDepositType.crate:
-        return l10n?.translate('crates') ?? 'Crates';
-    }
-  }
+  Future<void> _callStore(Store store) async {
+    if (store.phoneNumber == null) return;
 
-  String _getLocalizedChainName(BuildContext context, StoreChain chain) {
-    final l10n = AppLocalizations.of(context);
-    if (chain == StoreChain.other) {
-      return l10n?.translate('other') ?? 'Other';
-    }
-    // Store chain names are proper nouns and don't need translation
-    return chain.name;
-  }
-
-  Color _getChainColor(StoreChain chain) {
-    switch (chain) {
-      case StoreChain.billa:
-      case StoreChain.billaPlus:
-        return const Color(0xFFFFE400); // Billa yellow
-      case StoreChain.spar:
-      case StoreChain.eurospar:
-      case StoreChain.interspar:
-        return const Color(0xFF00823C); // Spar green
-      case StoreChain.hofer:
-        return const Color(0xFF1E4B90); // Hofer blue
-      case StoreChain.lidl:
-        return const Color(0xFF0050AA); // Lidl blue
-      case StoreChain.penny:
-        return const Color(0xFFE30613); // Penny red
-      case StoreChain.merkur:
-        return const Color(0xFF82BE00); // Merkur green
-      case StoreChain.mpreis:
-        return const Color(0xFFE4002B); // MPreis red
-      default:
-        return AppColors.primaryLight;
+    final url = 'tel:${store.phoneNumber}';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not make call')),
+        );
+      }
     }
   }
 }
+
+// Providers for stores
+final nearbyStoresProvider =
+    FutureProvider.family<List<Store>, LatLng>((ref, location) async {
+  final locationService = ref.read(locationServiceProvider);
+  return locationService.getNearbyLocations(
+    lat: location.latitude,
+    lng: location.longitude,
+  );
+});
+
+final searchStoresProvider =
+    FutureProvider.family<List<Store>, String>((ref, query) async {
+  final locationService = ref.read(locationServiceProvider);
+  return locationService.searchLocations(query);
+});
+
+final locationServiceProvider = Provider<LocationService>((ref) {
+  return LocationService(ref);
+});
