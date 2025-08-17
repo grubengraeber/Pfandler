@@ -9,7 +9,7 @@ app:
   - BITRISE_FLUTTER_PROJECT_LOCATION: "."
   - BITRISE_PROJECT_PATH: "."
   - BITRISE_EXPORT_METHOD: app-store
-  - FLUTTER_VERSION: "stable"
+  - FLUTTER_VERSION: "3.27.2"
 
 # Workflow triggers - when to run workflows
 trigger_map:
@@ -32,12 +32,12 @@ workflows:
     - activate-ssh-key@4:
         run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
     - git-clone@8: {}
-    - flutter-installer@0:
+    - flutter-installer@1:
         inputs:
         - version: $FLUTTER_VERSION
         - is_update: 'false'
-    - cache-pull@2: {}
-    - flutter-analyze@0:
+    - restore-dart-cache@1: {}
+    - flutter-analyze@1:
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
 
@@ -48,11 +48,11 @@ workflows:
     after_run:
     - _finish
     steps:
-    - flutter-test@1:
+    - flutter-test@2:
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
         - generate_code_coverage_files: 'yes'
-    - flutter-build@0:
+    - flutter-build@1:
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
         - platform: both
@@ -72,7 +72,7 @@ workflows:
     - DEPLOY_ENV: staging
     - BUNDLE_ID_SUFFIX: .staging
     steps:
-    - flutter-test@1:
+    - flutter-test@2:
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
     - change-value@1:
@@ -81,7 +81,7 @@ workflows:
         - file: lib/core/config.dart
         - old_value: "http://localhost:8080"
         - new_value: "https://staging-api.pfandler.app"
-    - flutter-build@0:
+    - flutter-build@1:
         title: Build iOS Staging
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
@@ -90,7 +90,7 @@ workflows:
         - ios_codesign_identity: "iPhone Distribution"
         - ios_export_method: ad-hoc
         - ios_additional_params: "--build-name=$BITRISE_BUILD_NUMBER --build-number=$BITRISE_BUILD_NUMBER"
-    - flutter-build@0:
+    - flutter-build@1:
         title: Build Android Staging
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
@@ -121,7 +121,7 @@ workflows:
     envs:
     - DEPLOY_ENV: production
     steps:
-    - flutter-test@1:
+    - flutter-test@2:
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
     - change-value@1:
@@ -131,7 +131,7 @@ workflows:
         - old_value: "http://localhost:8080"
         - new_value: "https://api.pfandler.app"
     - certificate-and-profile-installer@1: {}
-    - flutter-build@0:
+    - flutter-build@1:
         title: Build iOS Production
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
@@ -150,7 +150,7 @@ workflows:
         - ipa_path: "$BITRISE_IPA_PATH"
         - app_id: "$APPLE_APP_ID"
         - password: "$APPLE_APP_SPECIFIC_PASSWORD"
-    - flutter-build@0:
+    - flutter-build@1:
         title: Build Android Production
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
@@ -201,11 +201,11 @@ workflows:
             set -ex
             flutter clean
             flutter pub get
-    - flutter-test@1:
+    - flutter-test@2:
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
         - additional_params: "--coverage"
-    - flutter-build@0:
+    - flutter-build@1:
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
         - platform: both
@@ -219,23 +219,12 @@ workflows:
         - content: |
             #!/usr/bin/env bash
             bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
-    - cache-push@2:
-        inputs:
-        - cache_paths: |
-            ~/.pub-cache
-            ./.packages
-            ./ios/Pods -> ./ios/Podfile.lock
-            ./ios/Runner.xcworkspace
+    - save-dart-cache@1: {}
 
   # Finish workflow - cleanup and caching
   _finish:
     steps:
-    - cache-push@2:
-        inputs:
-        - cache_paths: |
-            $HOME/.pub-cache
-            ./.packages
-            ./ios/Pods -> ./ios/Podfile.lock
+    - save-dart-cache@1: {}
     - deploy-to-bitrise-io@2: {}
 
 # Meta information
