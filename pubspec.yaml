@@ -61,7 +61,7 @@ dependencies:
   intl: any
   cached_network_image: ^3.3.0
   share_plus: ^9.0.0
-  screenshot: ^3.0.0
+  # screenshot: ^1.3.0  # Temporarily disabled - incompatible with Flutter 3.16.0
   path: ^1.8.3
   
   # Authentication and networking

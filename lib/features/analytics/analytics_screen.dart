@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:screenshot/screenshot.dart';
+// import 'package:screenshot/screenshot.dart'; // Temporarily disabled - incompatible with Flutter 3.16.0
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as path;
 
@@ -209,7 +209,7 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   int _selectedDepositTypeIndex = -1;
-  final ScreenshotController _screenshotController = ScreenshotController();
+  // final ScreenshotController _screenshotController = ScreenshotController(); // Temporarily disabled
   bool _isSharing = false;
 
   @override
@@ -250,26 +250,23 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             data: (stats) => chartDataAsync.when(
               data: (chartData) => depositDataAsync.when(
                 data: (depositData) => basePieDataAsync.when(
-                  data: (basePieData) => Screenshot(
-                    controller: _screenshotController,
-                    child: Container(
-                      color: theme.scaffoldBackgroundColor,
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildStatsCards(context, stats),
-                            const SizedBox(height: AppSpacing.xl),
-                            _buildPeriodSelector(context),
-                            const SizedBox(height: AppSpacing.xl),
-                            _buildTrendChart(context, chartData),
-                            const SizedBox(height: AppSpacing.xl),
-                            _buildDepositTypesChart(context, depositData),
-                            const SizedBox(height: AppSpacing.xl),
-                            _buildBottleTypesChart(context, basePieData),
-                          ],
-                        ),
+                  data: (basePieData) => Container( // Screenshot temporarily disabled
+                    color: theme.scaffoldBackgroundColor,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildStatsCards(context, stats),
+                          const SizedBox(height: AppSpacing.xl),
+                          _buildPeriodSelector(context),
+                          const SizedBox(height: AppSpacing.xl),
+                          _buildTrendChart(context, chartData),
+                          const SizedBox(height: AppSpacing.xl),
+                          _buildDepositTypesChart(context, depositData),
+                          const SizedBox(height: AppSpacing.xl),
+                          _buildBottleTypesChart(context, basePieData),
+                        ],
                       ),
                     ),
                   ),
@@ -321,6 +318,16 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final shareText = l10n?.translate('shareAnalytics') ?? 'Check out my Pfandler bottle return analytics!';
 
     try {
+      // Screenshot functionality temporarily disabled for Flutter 3.16.0 compatibility
+      // TODO: Re-enable when screenshot package is compatible
+      
+      // For now, just share text without screenshot
+      await Share.share(
+        shareText,
+        subject: 'Pfandler Analytics',
+      );
+      
+      /* Original screenshot code - to be restored later:
       // Capture the screenshot
       final image = await _screenshotController.capture();
       if (image == null) {
@@ -346,6 +353,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           file.deleteSync();
         }
       });
+      */
     } catch (e) {
       final failedMessage = l10n?.translate('failedToShare') ?? 'Failed to share analytics';
       if (mounted) {
