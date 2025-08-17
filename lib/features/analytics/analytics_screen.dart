@@ -411,7 +411,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               child: _buildStatCard(
                 context,
                 title: l10n?.translate('mostCommon') ?? 'Most Common',
-                value: stats['mostCommonType'],
+                value: stats['mostCommonType'] == 'Unknown' 
+                    ? (l10n?.translate('unknown') ?? 'Unknown')
+                    : stats['mostCommonType'],
                 icon: CupertinoIcons.star_fill,
                 color: AppColors.warning,
               ),
@@ -452,9 +454,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Text(
-                  title,
-                  style: theme.textTheme.bodySmall,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.bodySmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -473,6 +478,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   Widget _buildPeriodSelector(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Card(
       child: Padding(
@@ -485,8 +491,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: ChoiceChip(
                   label: Text(
-                    period.name.substring(0, 1).toUpperCase() +
-                        period.name.substring(1),
+                    _getLocalizedPeriod(l10n, period),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: isSelected ? FontWeight.bold : null,
@@ -634,6 +639,19 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     );
   }
 
+  String _getLocalizedPeriod(AppLocalizations? l10n, AnalyticsPeriod period) {
+    switch (period) {
+      case AnalyticsPeriod.daily:
+        return l10n?.translate('daily') ?? 'Daily';
+      case AnalyticsPeriod.weekly:
+        return l10n?.translate('weekly') ?? 'Weekly';
+      case AnalyticsPeriod.monthly:
+        return l10n?.translate('monthly') ?? 'Monthly';
+      case AnalyticsPeriod.yearly:
+        return l10n?.translate('yearly') ?? 'Yearly';
+    }
+  }
+
   String _getBottomTitle(double value, AnalyticsPeriod period, AppLocalizations? l10n) {
     switch (period) {
       case AnalyticsPeriod.daily:
@@ -648,7 +666,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         ] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         return value.toInt() < days.length ? days[value.toInt()] : '';
       case AnalyticsPeriod.weekly:
-        return 'W${value.toInt() + 1}';
+        final weekAbbr = l10n?.translate('weekAbbr') ?? 'W';
+        return '$weekAbbr${value.toInt() + 1}';
       case AnalyticsPeriod.monthly:
         return '${value.toInt() + 1}';
       case AnalyticsPeriod.yearly:
@@ -877,7 +896,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             ),
             const SizedBox(width: AppSpacing.xs),
             Text(
-              data.label,
+              data.label == 'No Data' 
+                  ? (AppLocalizations.of(context)?.translate('noData') ?? 'No Data')
+                  : data.label,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : null,

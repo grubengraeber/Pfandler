@@ -253,22 +253,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showStoreDetails(BuildContext context, Store store) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.5,
-        decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(AppSpacing.lg),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.5,
+          decoration: BoxDecoration(
+            color: theme.scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppSpacing.lg),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
+          child: Column(
+            children: [
             Container(
               width: 40,
               height: 4,
@@ -312,7 +313,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ),
                               ),
                               Text(
-                                store.chain.name,
+                                _getLocalizedChainName(context, store.chain),
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.textTheme.bodySmall?.color,
                                 ),
@@ -374,7 +375,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       runSpacing: AppSpacing.sm,
                       children: store.acceptedTypes.map((type) {
                         return Chip(
-                          label: Text(type.label),
+                          label: Text(_getLocalizedDepositType(context, type)),
                           backgroundColor:
                               theme.colorScheme.primary.withValues(alpha: 0.1),
                         );
@@ -409,9 +410,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ),
-          ],
-        ),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -429,21 +431,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showClusterDetails(BuildContext context, ClusterMarker cluster) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(AppSpacing.lg),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          decoration: BoxDecoration(
+            color: theme.scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppSpacing.lg),
+            ),
           ),
-        ),
-        child: Column(
+          child: Column(
           children: [
             Container(
               width: 40,
@@ -543,7 +546,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 
@@ -575,6 +579,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
     }
+  }
+
+  String _getLocalizedDepositType(BuildContext context, AcceptedDepositType type) {
+    final l10n = AppLocalizations.of(context);
+    switch (type) {
+      case AcceptedDepositType.plastic025:
+        return l10n?.translate('plastic025') ?? 'Plastic 0.25L';
+      case AcceptedDepositType.plastic05:
+        return l10n?.translate('plastic05') ?? 'Plastic 0.5L';
+      case AcceptedDepositType.plastic1:
+        return l10n?.translate('plastic1') ?? 'Plastic 1L';
+      case AcceptedDepositType.plastic15:
+        return l10n?.translate('plastic15') ?? 'Plastic 1.5L';
+      case AcceptedDepositType.glass:
+        return l10n?.translate('glass') ?? 'Glass';
+      case AcceptedDepositType.can:
+        return l10n?.translate('cans') ?? 'Cans';
+      case AcceptedDepositType.crate:
+        return l10n?.translate('crates') ?? 'Crates';
+    }
+  }
+
+  String _getLocalizedChainName(BuildContext context, StoreChain chain) {
+    final l10n = AppLocalizations.of(context);
+    if (chain == StoreChain.other) {
+      return l10n?.translate('other') ?? 'Other';
+    }
+    // Store chain names are proper nouns and don't need translation
+    return chain.name;
   }
 
   Color _getChainColor(StoreChain chain) {

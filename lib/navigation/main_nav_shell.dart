@@ -18,6 +18,7 @@ class MainNavShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       key: scaffoldKey,
@@ -31,9 +32,9 @@ class MainNavShell extends ConsumerWidget {
           CupertinoIcons.plus_circle_fill,
           color: Colors.white,
         ),
-        label: const Text(
-          'Add Bottle',
-          style: TextStyle(
+        label: Text(
+          l10n?.addBottle ?? 'Add Bottle',
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 16,

@@ -67,7 +67,7 @@ class MenuDrawer extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Bottle Return Manager',
+                  l10n?.translate('bottleReturnManager') ?? 'Bottle Return Manager',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 16,

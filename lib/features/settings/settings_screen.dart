@@ -28,7 +28,7 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         children: [
           // Appearance Section
-          _buildSectionHeader(context, 'Appearance'),
+          _buildSectionHeader(context, l10n?.translate('appearance') ?? 'Appearance'),
           Card(
             margin: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
@@ -50,7 +50,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ),
                   title: Text(l10n?.translate('theme') ?? 'Theme'),
-                  subtitle: Text(_getThemeModeText(themeMode)),
+                  subtitle: Text(_getThemeModeText(context, themeMode)),
                   trailing: const Icon(CupertinoIcons.chevron_right),
                   onTap: () => _showThemeDialog(context, ref),
                 ),
@@ -78,7 +78,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
           
           // Data & Privacy Section
-          _buildSectionHeader(context, 'Data & Privacy'),
+          _buildSectionHeader(context, l10n?.translate('dataPrivacy') ?? 'Data & Privacy'),
           Card(
             margin: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
@@ -98,14 +98,14 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               title: Text(l10n?.translate('export') ?? 'Export Data'),
-              subtitle: const Text('Export as CSV or JSON'),
+              subtitle: Text(l10n?.translate('exportDescription') ?? 'Export as CSV or JSON'),
               trailing: const Icon(CupertinoIcons.chevron_right),
               onTap: () => _showExportDialog(context),
             ),
           ),
           
           // Scanner Settings Section
-          _buildSectionHeader(context, 'Scanner'),
+          _buildSectionHeader(context, l10n?.translate('scanner') ?? 'Scanner'),
           Card(
             margin: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
@@ -126,8 +126,8 @@ class SettingsScreen extends ConsumerWidget {
                       size: 20,
                     ),
                   ),
-                  title: const Text('Auto-Scan'),
-                  subtitle: const Text('Automatically scan when camera opens'),
+                  title: Text(l10n?.translate('autoScan') ?? 'Auto-Scan'),
+                  subtitle: Text(l10n?.translate('autoScanDescription') ?? 'Automatically scan when camera opens'),
                   value: true,
                   onChanged: (value) {},
                 ),
@@ -145,8 +145,8 @@ class SettingsScreen extends ConsumerWidget {
                       size: 20,
                     ),
                   ),
-                  title: const Text('Scan Sound'),
-                  subtitle: const Text('Play sound on successful scan'),
+                  title: Text(l10n?.translate('scanSound') ?? 'Scan Sound'),
+                  subtitle: Text(l10n?.translate('scanSoundDescription') ?? 'Play sound on successful scan'),
                   value: true,
                   onChanged: (value) {},
                 ),
@@ -164,8 +164,8 @@ class SettingsScreen extends ConsumerWidget {
                       size: 20,
                     ),
                   ),
-                  title: const Text('Vibration'),
-                  subtitle: const Text('Vibrate on successful scan'),
+                  title: Text(l10n?.translate('vibration') ?? 'Vibration'),
+                  subtitle: Text(l10n?.translate('vibrationDescription') ?? 'Vibrate on successful scan'),
                   value: true,
                   onChanged: (value) {},
                 ),
@@ -174,7 +174,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
           
           // About Section
-          _buildSectionHeader(context, 'About'),
+          _buildSectionHeader(context, l10n?.translate('about') ?? 'About'),
           Card(
             margin: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
@@ -281,14 +281,15 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  String _getThemeModeText(ThemeMode mode) {
+  String _getThemeModeText(BuildContext context, ThemeMode mode) {
+    final l10n = AppLocalizations.of(context);
     switch (mode) {
       case ThemeMode.light:
-        return 'Light';
+        return l10n?.translate('light') ?? 'Light';
       case ThemeMode.dark:
-        return 'Dark';
+        return l10n?.translate('dark') ?? 'Dark';
       case ThemeMode.system:
-        return 'System';
+        return l10n?.translate('system') ?? 'System';
     }
   }
 
@@ -306,18 +307,55 @@ class SettingsScreen extends ConsumerWidget {
   void _showThemeDialog(BuildContext context, WidgetRef ref) {
     final themeModeNotifier = ref.read(themeModeProvider.notifier);
     final currentMode = ref.read(themeModeProvider);
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
     
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Choose Theme'),
-        content: Column(
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppSpacing.lg),
+          ),
+        ),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Drag handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              decoration: BoxDecoration(
+                color: theme.dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Text(
+                l10n?.translate('chooseTheme') ?? 'Choose Theme',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // Theme options
             RadioListTile<ThemeMode>(
-              title: const Text('Light'),
+              title: Text(
+                l10n?.translate('light') ?? 'Light',
+                style: theme.textTheme.bodyLarge,
+              ),
               value: ThemeMode.light,
               groupValue: currentMode,
+              activeColor: theme.colorScheme.primary,
               onChanged: (value) {
                 if (value != null) {
                   themeModeNotifier.setThemeMode(value);
@@ -326,9 +364,13 @@ class SettingsScreen extends ConsumerWidget {
               },
             ),
             RadioListTile<ThemeMode>(
-              title: const Text('Dark'),
+              title: Text(
+                l10n?.translate('dark') ?? 'Dark',
+                style: theme.textTheme.bodyLarge,
+              ),
               value: ThemeMode.dark,
               groupValue: currentMode,
+              activeColor: theme.colorScheme.primary,
               onChanged: (value) {
                 if (value != null) {
                   themeModeNotifier.setThemeMode(value);
@@ -337,9 +379,13 @@ class SettingsScreen extends ConsumerWidget {
               },
             ),
             RadioListTile<ThemeMode>(
-              title: const Text('System'),
+              title: Text(
+                l10n?.translate('system') ?? 'System',
+                style: theme.textTheme.bodyLarge,
+              ),
               value: ThemeMode.system,
               groupValue: currentMode,
+              activeColor: theme.colorScheme.primary,
               onChanged: (value) {
                 if (value != null) {
                   themeModeNotifier.setThemeMode(value);
@@ -347,14 +393,28 @@ class SettingsScreen extends ConsumerWidget {
                 }
               },
             ),
+            const SizedBox(height: AppSpacing.md),
+            // Cancel button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  ),
+                  child: Text(
+                    l10n?.cancel ?? 'Cancel',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
       ),
     );
   }
@@ -367,29 +427,38 @@ class SettingsScreen extends ConsumerWidget {
     
     showModalBottomSheet(
       context: context,
-      backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppSpacing.lg),
+          ),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Drag handle
             Container(
               width: 40,
               height: 4,
-              margin: const EdgeInsets.only(bottom: AppSpacing.md),
+              margin: const EdgeInsets.symmetric(vertical: AppSpacing.md),
               decoration: BoxDecoration(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                color: theme.dividerColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
+            // Title
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: Text(
                 l10n?.translate('selectLanguage') ?? 'Select Language',
-                style: theme.textTheme.titleLarge,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -450,146 +519,210 @@ class SettingsScreen extends ConsumerWidget {
 
   void _showExportDialog(BuildContext context) {
     final exportService = ExportService();
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
     
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Export Data'),
-        content: Column(
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppSpacing.lg),
+          ),
+        ),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Choose export format:'),
-            const SizedBox(height: AppSpacing.md),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  
-                  // Show loading indicator
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  );
-                  
-                  final result = await exportService.exportToCsv();
-                  
-                  // Hide loading indicator
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    
-                    if (result.success) {
-                      // Show success and offer to share
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Export Successful'),
-                          content: Text('Data exported to ${result.fileName}'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('OK'),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                Navigator.pop(context);
-                                await exportService.shareExport(result.filePath!);
-                              },
-                              icon: const Icon(CupertinoIcons.share),
-                              label: const Text('Share'),
-                            ),
-                          ],
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Export failed: ${result.error}')),
-                      );
-                    }
-                  }
-                },
-                icon: const Icon(CupertinoIcons.doc_text),
-                label: const Text('Export as CSV'),
+            // Drag handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              decoration: BoxDecoration(
+                color: theme.dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Text(
+                l10n?.translate('exportData') ?? 'Export Data',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  
-                  // Show loading indicator
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  );
-                  
-                  final result = await exportService.exportToJson();
-                  
-                  // Hide loading indicator
-                  if (context.mounted) {
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Text(
+                l10n?.translate('chooseExportFormat') ?? 'Choose export format:',
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            // Export as CSV button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
                     Navigator.pop(context);
                     
-                    if (result.success) {
-                      // Show success and offer to share
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Export Successful'),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Exported ${result.exportedItems} items'),
-                              const SizedBox(height: AppSpacing.xs),
-                              Text(
-                                result.fileName!,
-                                style: Theme.of(context).textTheme.bodySmall,
+                    // Show loading indicator
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                    
+                    final result = await exportService.exportToCsv();
+                    
+                    // Hide loading indicator
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      
+                      if (result.success) {
+                        // Show success and offer to share
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Export Successful'),
+                            content: Text('Data exported to ${result.fileName}'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('OK'),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  Navigator.pop(context);
+                                  if (result.filePath != null) {
+                                    await exportService.shareExport(result.filePath!);
+                                  }
+                                },
+                                icon: const Icon(CupertinoIcons.share),
+                                label: const Text('Share'),
                               ),
                             ],
                           ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('OK'),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                Navigator.pop(context);
-                                await exportService.shareExport(result.filePath!);
-                              },
-                              icon: const Icon(CupertinoIcons.share),
-                              label: const Text('Share'),
-                            ),
-                          ],
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Export failed: ${result.error}')),
-                      );
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Export failed: ${result.error}')),
+                        );
+                      }
                     }
-                  }
-                },
-                icon: const Icon(CupertinoIcons.doc_richtext),
-                label: const Text('Export as JSON'),
+                  },
+                  icon: const Icon(CupertinoIcons.doc_text),
+                  label: const Text('Export as CSV'),
+                ),
               ),
             ),
+            const SizedBox(height: AppSpacing.sm),
+            // Export as JSON button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    
+                    // Show loading indicator
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                    
+                    final result = await exportService.exportToJson();
+                    
+                    // Hide loading indicator
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      
+                      if (result.success) {
+                        // Show success and offer to share
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Export Successful'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Exported ${result.exportedItems} items'),
+                                const SizedBox(height: AppSpacing.xs),
+                                Text(
+                                  result.fileName!,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('OK'),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  Navigator.pop(context);
+                                  if (result.filePath != null) {
+                                    await exportService.shareExport(result.filePath!);
+                                  }
+                                },
+                                icon: const Icon(CupertinoIcons.share),
+                                label: const Text('Share'),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Export failed: ${result.error}')),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(CupertinoIcons.doc_richtext),
+                  label: const Text('Export as JSON'),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // Cancel button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  ),
+                  child: Text(
+                    l10n?.cancel ?? 'Cancel',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
       ),
     );
   }

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
@@ -40,19 +39,21 @@ class LocationService {
       final cached = cache.get(cacheKey);
 
       if (cached != null) {
-        final cachedData = json.decode(cached);
-        final cachedTime = DateTime.parse(cachedData['timestamp']);
+        try {
+          final cachedData = json.decode(cached);
+          final cachedTime = DateTime.parse(cachedData['timestamp']);
 
-        // Use cache if less than 1 hour old
-        if (DateTime.now().difference(cachedTime) < const Duration(hours: 1)) {
-          debugPrint('Using cached locations (${cachedData['locations'].length} stores)');
-          return _parseStores(cachedData['locations']);
+          // Use cache if less than 1 hour old
+          if (DateTime.now().difference(cachedTime) < const Duration(hours: 1)) {
+              return _parseStores(cachedData['locations']);
+          }
+        } catch (cacheError) {
+          // Continue to fetch from server
         }
       }
 
       // Try to fetch from server with timeout
       try {
-        debugPrint('Fetching locations from server: $baseUrl');
         final response = await http.post(
           Uri.parse('$baseUrl/location/getAustrianDepositLocations'),
           headers: {'Content-Type': 'application/json'},
@@ -64,52 +65,53 @@ class LocationService {
         ).timeout(
           const Duration(seconds: 5),
           onTimeout: () {
-            debugPrint('Server request timed out after 5 seconds');
             throw Exception('Request timeout');
           },
         );
 
         if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          // Handle both array and object response formats
-          List<dynamic> locations = [];
-          if (data is List) {
-            locations = data;
-          } else if (data is Map && data['locations'] != null) {
-            locations = data['locations'] as List? ?? [];
+          try {
+            final data = json.decode(response.body);
+            // Handle both array and object response formats
+            List<dynamic> locations = [];
+            if (data is List) {
+              locations = data;
+            } else if (data is Map && data['locations'] != null) {
+              locations = data['locations'] as List? ?? [];
+            }
+
+
+            // Cache the result
+            await cache.put(
+                cacheKey,
+                json.encode({
+                  'timestamp': DateTime.now().toIso8601String(),
+                  'locations': locations,
+                }));
+
+            return _parseStores(locations);
+          } catch (parseError) {
+            rethrow;
           }
-
-          debugPrint('Received ${locations.length} locations from server');
-
-          // Cache the result
-          await cache.put(
-              cacheKey,
-              json.encode({
-                'timestamp': DateTime.now().toIso8601String(),
-                'locations': locations,
-              }));
-
-          return _parseStores(locations);
         }
         
-        debugPrint('Server returned status ${response.statusCode}');
         throw Exception('Failed to get locations: Status ${response.statusCode}');
       } catch (e) {
-        debugPrint('Server connection failed: $e');
         
         // Try to use any cached data, even if expired
         if (cached != null) {
-          final cachedData = json.decode(cached);
-          debugPrint('Using expired cache data (${cachedData['locations'].length} stores)');
-          return _parseStores(cachedData['locations']);
+          try {
+            final cachedData = json.decode(cached);
+            return _parseStores(cachedData['locations']);
+          } catch (expiredCacheError) {
+            // Fall through to mock data
+          }
         }
         
         // Fall through to mock data
         rethrow;
       }
     } catch (e) {
-      debugPrint('Error getting Austrian locations: $e');
-      debugPrint('Returning mock data as fallback');
       // Return mock data as fallback
       return _getMockStores();
     }
@@ -135,22 +137,32 @@ class LocationService {
           'lng': lng,
           'maxDistanceKm': maxDistanceKm,
         }),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Request timeout');
+        },
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        // Handle both array and object response formats
-        List<dynamic> locations = [];
-        if (data is List) {
-          locations = data;
-        } else if (data is Map && data['locations'] != null) {
-          locations = data['locations'] as List? ?? [];
+        try {
+          final data = json.decode(response.body);
+          
+          // Handle both array and object response formats
+          List<dynamic> locations = [];
+          if (data is List) {
+            locations = data;
+          } else if (data is Map && data['locations'] != null) {
+            locations = data['locations'] as List? ?? [];
+          }
+          
+          return _parseStores(locations);
+        } catch (parseError) {
+          rethrow;
         }
-        return _parseStores(locations);
       }
-      throw Exception('Failed to get nearby locations');
+      throw Exception('Failed to get nearby locations: Status ${response.statusCode}');
     } catch (e) {
-      debugPrint('Error getting nearby locations: $e');
       // Fallback to Austrian locations
       return getAustrianDepositLocations(
         lat: lat,
@@ -160,28 +172,32 @@ class LocationService {
     }
   }
 
-  // Search locations by query
+  // Search locations by query - implements client-side filtering
   Future<List<Store>> searchLocations(String query) async {
+    // Since the backend doesn't have a search endpoint, do client-side filtering
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/location/search?q=${Uri.encodeComponent(query)}'),
-        headers: {'Content-Type': 'application/json'},
+      // First try to get all nearby locations from a large radius
+      final allStores = await getNearbyLocations(
+        lat: 47.6965, // Austria center
+        lng: 13.3457,
+        maxDistanceKm: 500.0, // Cover most of Austria
       );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        // Handle both array and object response formats
-        List<dynamic> locations = [];
-        if (data is List) {
-          locations = data;
-        } else if (data is Map && data['locations'] != null) {
-          locations = data['locations'] as List? ?? [];
-        }
-        return _parseStores(locations);
+      
+      if (query.isEmpty) {
+        return allStores;
       }
-      throw Exception('Failed to search locations');
+      
+      // Filter stores based on query
+      final lowerQuery = query.toLowerCase();
+      final filteredStores = allStores.where((store) {
+        return store.name.toLowerCase().contains(lowerQuery) ||
+               store.address.toLowerCase().contains(lowerQuery) ||
+               store.city.toLowerCase().contains(lowerQuery) ||
+               store.chain.name.toLowerCase().contains(lowerQuery);
+      }).toList();
+      
+      return filteredStores;
     } catch (e) {
-      debugPrint('Error searching locations: $e');
       return [];
     }
   }
@@ -189,32 +205,49 @@ class LocationService {
   // Parse store data from API response
   List<Store> _parseStores(List<dynamic> locations) {
     return locations.map((loc) {
-      // Ensure loc is a Map
-      if (loc is! Map<String, dynamic>) {
-        debugPrint('Warning: Location data is not a Map: ${loc.runtimeType}');
+      // Handle various data formats
+      Map<String, dynamic> locMap;
+      
+      if (loc is Map<String, dynamic>) {
+        locMap = loc;
+      } else if (loc is Map) {
+        // Convert non-typed Map to Map<String, dynamic>
+        try {
+          locMap = Map<String, dynamic>.from(loc);
+        } catch (e) {
+          return null;
+        }
+      } else {
         return null;
       }
       
       try {
+        final id = locMap['id']?.toString() ?? '';
+        final name = locMap['name'] ?? 'Unknown Store';
+        final chainRaw = locMap['chain'] ?? locMap['storeChain'];
+        final chain = _parseStoreChain(chainRaw);
+        final lat = _parseDouble(locMap['lat'] ?? locMap['latitude']) ?? 0.0;
+        final lng = _parseDouble(locMap['lng'] ?? locMap['longitude']) ?? 0.0;
+        final address = locMap['address']?.toString() ?? '';
+        final city = locMap['city']?.toString() ?? '';
+        final postalCode = (locMap['postalCode'] ?? locMap['postal_code'])?.toString() ?? '';
+        final acceptedTypes = _parseAcceptedTypes(locMap['acceptedTypes'] ?? locMap['accepted_types']);
+        final hasReturnMachine = locMap['hasReturnMachine'] ?? locMap['has_return_machine'] ?? true;
+        final machineCount = _parseInt(locMap['machineCount'] ?? locMap['machine_count']) ?? 1;
+        
         return Store(
-          id: loc['id']?.toString() ?? '',
-          name: loc['name'] ?? 'Unknown Store',
-          chain: _parseStoreChain(loc['chain'] ?? loc['storeChain']),
-          location: LatLng(
-            _parseDouble(loc['lat'] ?? loc['latitude']) ?? 0.0,
-            _parseDouble(loc['lng'] ?? loc['longitude']) ?? 0.0,
-          ),
-          address: loc['address']?.toString() ?? '',
-          city: loc['city']?.toString() ?? '',
-          postalCode: (loc['postalCode'] ?? loc['postal_code'])?.toString() ?? '',
-          acceptedTypes: _parseAcceptedTypes(loc['acceptedTypes'] ?? loc['accepted_types']),
-          hasReturnMachine: loc['hasReturnMachine'] ?? loc['has_return_machine'] ?? true,
-          machineCount: _parseInt(loc['machineCount'] ?? loc['machine_count']) ?? 1,
+          id: id,
+          name: name,
+          chain: chain,
+          location: LatLng(lat, lng),
+          address: address,
+          city: city,
+          postalCode: postalCode,
+          acceptedTypes: acceptedTypes,
+          hasReturnMachine: hasReturnMachine,
+          machineCount: machineCount,
         );
-      } catch (e, stackTrace) {
-        debugPrint('Error parsing store data: $e');
-        debugPrint('Store data was: $loc');
-        debugPrint('Stack trace: $stackTrace');
+      } catch (e) {
         return null;
       }
     }).where((store) => store != null).cast<Store>().toList();
@@ -278,8 +311,22 @@ class LocationService {
       // Handle comma-separated string
       typesList = types.split(',').map((s) => s.trim()).toList();
     } else if (types is Map) {
-      // Handle map format (might be indexed like {0: 'plastic', 1: 'glass'})
-      typesList = types.values.toList();
+      // Handle map format safely - convert to list regardless of key type
+      try {
+        // Convert Map to List, handling any key type
+        if (types is Map<String, dynamic>) {
+          typesList = types.values.toList();
+        } else {
+          // For Maps with non-String keys, convert safely
+          Map<String, dynamic> stringKeyMap = {};
+          types.forEach((key, value) {
+            stringKeyMap[key.toString()] = value;
+          });
+          typesList = stringKeyMap.values.toList();
+        }
+      } catch (e) {
+        return AcceptedDepositType.values;
+      }
     } else {
       // Fallback to all types
       return AcceptedDepositType.values;

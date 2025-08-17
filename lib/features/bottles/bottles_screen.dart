@@ -101,7 +101,7 @@ class BottlesScreen extends ConsumerWidget {
                                   const CircularProgressIndicator(),
                                   const SizedBox(height: AppSpacing.sm),
                                   Text(
-                                    'Syncing with server...',
+                                    l10n?.translate('syncingWithServer') ?? 'Syncing with server...',
                                     style: Theme.of(context).textTheme.bodySmall,
                                   ),
                                 ],
@@ -137,7 +137,7 @@ class BottlesScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(width: AppSpacing.sm),
                                 Text(
-                                  'Syncing with server...',
+                                  l10n?.translate('syncingWithServer') ?? 'Syncing with server...',
                                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: Theme.of(context).colorScheme.primary,
                                   ),
