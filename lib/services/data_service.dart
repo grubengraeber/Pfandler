@@ -20,7 +20,7 @@ class DataService extends StateNotifier<ConnectionStatus> {
   Box? _cacheBox;
   http.Client? _client;
   final Connectivity _connectivity = Connectivity();
-  final String _serverUrl = 'http://localhost:8080';
+  final String _serverUrl = 'https://api.pfandler.fabiotietz.com';
   
   DataService() : super(ConnectionStatus.connecting) {
     _init();
@@ -73,9 +73,9 @@ class DataService extends StateNotifier<ConnectionStatus> {
       // Initialize HTTP client if not already done
       _client ??= http.Client();
       
-      // Test connection with a simple health check
+      // Test connection with a simple health check using the greeting endpoint
       final response = await _client!
-          .get(Uri.parse('$_serverUrl/health'))
+          .post(Uri.parse('$_serverUrl/greeting/hello?name=App'))
           .timeout(const Duration(seconds: 5));
       
       if (response.statusCode == 200) {

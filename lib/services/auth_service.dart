@@ -2,10 +2,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
-import '../core/config.dart';
+import 'api/api_client.dart';
 
 // Auth State
 class AuthState {
@@ -85,9 +84,10 @@ class User {
 class AuthNotifier extends StateNotifier<AuthState> {
   final Ref ref;
   late final Box _authBox;
-  final String baseUrl = ApiConfig.baseUrl;
-  
+  late final ApiClient _apiClient;
+
   AuthNotifier(this.ref) : super(AuthState()) {
+    _apiClient = ApiClient();
     _init();
   }
 
@@ -100,7 +100,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final token = _authBox.get('authToken');
       final userJson = _authBox.get('user');
-      
+
       if (token != null && userJson != null) {
         final user = User.fromJson(json.decode(userJson));
         state = state.copyWith(
@@ -108,7 +108,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           authToken: token,
           user: user,
         );
-        
+
         // Verify token is still valid
         await getCurrentUser();
       }
@@ -117,58 +117,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> registerWithEmail(String email, String password) async {
+  Future<void> registerWithEmail(String email, String password,
+      {String name = ''}) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/registerWithEmail'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': email,
-          'password': password,
-        }),
-      ).timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          // Fallback to mock mode for testing without backend
-          debugPrint('Backend timeout - using mock mode');
-          return http.Response(
-            json.encode({
-              'success': true,
-              'token': 'mock_token_${DateTime.now().millisecondsSinceEpoch}',
-              'user': {
-                'id': DateTime.now().millisecondsSinceEpoch,
-                'email': email,
-                'createdAt': DateTime.now().toIso8601String(),
-              }
-            }),
-            200,
-          );
-        },
+      final response = await _apiClient.registerWithEmail(
+        email: email,
+        password: password,
+        name: name.isEmpty ? email.split('@').first : name,
       );
 
-      if (response.statusCode == 200) {
-        final responseBody = response.body;
-        if (responseBody.isEmpty) {
-          throw Exception('Empty response from server');
-        }
-        
-        final data = json.decode(responseBody);
-        if (data == null || data is! Map<String, dynamic>) {
-          throw Exception('Invalid response format from server');
-        }
-        
-        await _handleAuthSuccess(data, email: email);
+      // Handle successful registration
+      if (response['token'] != null) {
+        await _handleAuthSuccess(response, email: email);
       } else {
-        String errorMessage = 'Registration failed';
-        try {
-          final error = json.decode(response.body);
-          errorMessage = error['message'] ?? errorMessage;
-        } catch (_) {
-          errorMessage = 'Registration failed with status ${response.statusCode}';
-        }
-        throw Exception(errorMessage);
+        throw Exception('Registration failed: Invalid response from server');
       }
     } catch (e) {
       state = state.copyWith(
@@ -181,56 +145,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> loginWithEmail(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/loginWithEmail'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': email,
-          'password': password,
-        }),
-      ).timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          // Fallback to mock mode for testing without backend
-          debugPrint('Backend timeout - using mock mode');
-          return http.Response(
-            json.encode({
-              'success': true,
-              'token': 'mock_token_${DateTime.now().millisecondsSinceEpoch}',
-              'user': {
-                'id': DateTime.now().millisecondsSinceEpoch,
-                'email': email,
-                'createdAt': DateTime.now().toIso8601String(),
-              }
-            }),
-            200,
-          );
-        },
+      final response = await _apiClient.loginWithEmail(
+        email: email,
+        password: password,
       );
 
-      if (response.statusCode == 200) {
-        final responseBody = response.body;
-        if (responseBody.isEmpty) {
-          throw Exception('Empty response from server');
-        }
-        
-        final data = json.decode(responseBody);
-        if (data == null || data is! Map<String, dynamic>) {
-          throw Exception('Invalid response format from server');
-        }
-        
-        await _handleAuthSuccess(data, email: email);
+      // Handle successful login
+      if (response['token'] != null) {
+        await _handleAuthSuccess(response, email: email);
       } else {
-        String errorMessage = 'Login failed';
-        try {
-          final error = json.decode(response.body);
-          errorMessage = error['message'] ?? errorMessage;
-        } catch (_) {
-          errorMessage = 'Login failed with status ${response.statusCode}';
-        }
-        throw Exception(errorMessage);
+        throw Exception('Login failed: Invalid response from server');
       }
     } catch (e) {
       state = state.copyWith(
@@ -241,23 +167,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> _handleAuthSuccess(Map<String, dynamic> data, {String? email}) async {
+  Future<void> _handleAuthSuccess(Map<String, dynamic> data,
+      {String? email}) async {
     // Check for required fields
     if (!data.containsKey('token') || !data.containsKey('user')) {
       // Fallback: Check if this is a Serverpod response format
       // Serverpod might return data wrapped in a different structure
       debugPrint('Auth response data: $data');
-      
+
       // Try to handle different response formats
       String? token;
       Map<String, dynamic>? userData;
-      
+
       // Check if the response is directly a user object (has id and email fields)
       if (data.containsKey('id') && data.containsKey('email')) {
         // This is a direct user object from Serverpod
         userData = data;
         // Generate a token for session management
-        token = 'session_${data['id']}_${DateTime.now().millisecondsSinceEpoch}';
+        token =
+            'session_${data['id']}_${DateTime.now().millisecondsSinceEpoch}';
       } else if (data.containsKey('token')) {
         token = data['token'];
       } else if (data.containsKey('authToken')) {
@@ -271,23 +199,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
           'createdAt': DateTime.now().toIso8601String(),
         };
       }
-      
+
       if (data.containsKey('user') && data['user'] is Map) {
         userData = data['user'] as Map<String, dynamic>;
       } else if (data.containsKey('userInfo') && data['userInfo'] is Map) {
         userData = data['userInfo'] as Map<String, dynamic>;
       }
-      
+
       if (token == null || userData == null) {
         throw Exception('Invalid auth response: missing token or user data');
       }
-      
+
       data = {'token': token, 'user': userData};
     }
-    
+
     final token = data['token'] as String;
     final userMap = data['user'] as Map<String, dynamic>;
-    
+
     // Ensure required user fields exist
     if (!userMap.containsKey('id')) {
       userMap['id'] = DateTime.now().millisecondsSinceEpoch;
@@ -298,60 +226,54 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (!userMap.containsKey('createdAt')) {
       userMap['createdAt'] = DateTime.now().toIso8601String();
     }
-    
+
     final user = User.fromJson(userMap);
-    
+
     // Store auth data
     await _authBox.put('authToken', token);
     await _authBox.put('user', json.encode(user.toJson()));
-    
+
     state = state.copyWith(
       isAuthenticated: true,
       authToken: token,
       user: user,
       isLoading: false,
     );
-    
+
     // Link device after successful auth
     await linkDevice();
   }
 
   Future<void> linkDevice() async {
     if (state.authToken == null) return;
-    
+
     try {
       final deviceInfo = DeviceInfoPlugin();
       String deviceId;
-      String deviceName;
-      
+      String deviceToken;
+
       if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
         deviceId = iosInfo.identifierForVendor ?? 'unknown';
-        deviceName = iosInfo.name;
+        deviceToken = iosInfo.name;
       } else if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
         deviceId = androidInfo.id;
-        deviceName = '${androidInfo.brand} ${androidInfo.model}';
+        deviceToken = '${androidInfo.brand} ${androidInfo.model}';
       } else {
         deviceId = 'unknown';
-        deviceName = 'Unknown Device';
+        deviceToken = 'Unknown Device';
       }
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/linkDevice'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${state.authToken}',
-        },
-        body: json.encode({
-          'deviceId': deviceId,
-          'deviceName': deviceName,
-        }),
+
+      // Set the auth token for the API client
+      _apiClient.setAuthToken(state.authToken!);
+
+      await _apiClient.linkDevice(
+        deviceId: deviceId,
+        deviceToken: deviceToken,
       );
-      
-      if (response.statusCode != 200) {
-        debugPrint('Failed to link device: ${response.body}');
-      }
+
+      debugPrint('Device linked successfully');
     } catch (e) {
       debugPrint('Error linking device: $e');
     }
@@ -359,32 +281,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> getCurrentUser() async {
     if (state.authToken == null) return;
-    
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/getCurrentUser'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${state.authToken}',
-        },
-        body: json.encode({}),
-      );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+    try {
+      // Set the auth token for the API client
+      _apiClient.setAuthToken(state.authToken!);
+
+      final data = await _apiClient.getCurrentUser();
+
+      if (data['user'] != null) {
         final user = User.fromJson(data['user']);
-        
+
         state = state.copyWith(
           user: user,
           isAuthenticated: true,
         );
-        
+
         await _authBox.put('user', json.encode(user.toJson()));
-      } else if (response.statusCode == 401) {
+      }
+    } catch (e) {
+      if (e.toString().contains('401')) {
         // Token expired
         await logout();
       }
-    } catch (e) {
       debugPrint('Failed to get current user: $e');
     }
   }
@@ -408,7 +326,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? avatarUrl,
   }) async {
     if (state.authToken == null || state.user == null) return;
-    
+
     try {
       // TODO: Implement profile update API call
       final updatedUser = User(
@@ -419,7 +337,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         createdAt: state.user!.createdAt,
         metadata: state.user!.metadata,
       );
-      
+
       state = state.copyWith(user: updatedUser);
       await _authBox.put('user', json.encode(updatedUser.toJson()));
     } catch (e) {

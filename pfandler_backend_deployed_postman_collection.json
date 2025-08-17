@@ -1,0 +1,951 @@
+{
+  "info": {
+    "name": "Pfandler Backend - Deployed Server (Query Params)",
+    "description": "API collection for deployed Pfandler backend server at api.pfandler.fabiotietz.com - Uses query parameters instead of JSON body",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.pfandler.fabiotietz.com",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register with Email",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/registerWithEmail?email=user@example.com&password=securePassword123&name=John Doe",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "registerWithEmail"],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "user@example.com"
+                },
+                {
+                  "key": "password",
+                  "value": "securePassword123"
+                },
+                {
+                  "key": "name",
+                  "value": "John Doe"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login with Email",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/loginWithEmail?email=user@example.com&password=securePassword123",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "loginWithEmail"],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "user@example.com"
+                },
+                {
+                  "key": "password",
+                  "value": "securePassword123"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refreshToken?refreshToken=your_refresh_token_here",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refreshToken"],
+              "query": [
+                {
+                  "key": "refreshToken",
+                  "value": "your_refresh_token_here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/getCurrentUser",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "getCurrentUser"]
+            }
+          }
+        },
+        {
+          "name": "Link Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/linkDevice?deviceId=device123&deviceToken=token123",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "linkDevice"],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "device123"
+                },
+                {
+                  "key": "deviceToken",
+                  "value": "token123"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/changePassword?oldPassword=oldPass123&newPassword=newPass456",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "changePassword"],
+              "query": [
+                {
+                  "key": "oldPassword",
+                  "value": "oldPass123"
+                },
+                {
+                  "key": "newPassword",
+                  "value": "newPass456"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Location",
+      "item": [
+        {
+          "name": "Get Nearby Locations",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/location/nearby?lat=48.1351&lng=11.5820",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "nearby"],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "48.1351",
+                  "description": "Latitude"
+                },
+                {
+                  "key": "lng",
+                  "value": "11.5820",
+                  "description": "Longitude"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search All Austria",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/location/searchAllAustria?lat=48.2082&lng=16.3738",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "searchAllAustria"],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "48.2082",
+                  "description": "Latitude (Vienna)"
+                },
+                {
+                  "key": "lng",
+                  "value": "16.3738",
+                  "description": "Longitude (Vienna)"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Report Location Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/location/reportStatus?locationId=1&status=WORKING&notes=Machine working perfectly",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "reportStatus"],
+              "query": [
+                {
+                  "key": "locationId",
+                  "value": "1"
+                },
+                {
+                  "key": "status",
+                  "value": "WORKING"
+                },
+                {
+                  "key": "notes",
+                  "value": "Machine working perfectly"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/location/addLocation?name=New Store&lat=48.1351&lng=11.5820&type=STORE&address=Main Street 1",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "addLocation"],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "New Store"
+                },
+                {
+                  "key": "lat",
+                  "value": "48.1351"
+                },
+                {
+                  "key": "lng",
+                  "value": "11.5820"
+                },
+                {
+                  "key": "type",
+                  "value": "STORE"
+                },
+                {
+                  "key": "address",
+                  "value": "Main Street 1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Favorites",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/location/getFavorites",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "getFavorites"]
+            }
+          }
+        },
+        {
+          "name": "Add Favorite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/location/addFavorite?locationId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "addFavorite"],
+              "query": [
+                {
+                  "key": "locationId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove Favorite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/location/removeFavorite?favoriteId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "removeFavorite"],
+              "query": [
+                {
+                  "key": "favoriteId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Import Austrian Stores",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/location/importAustrianStores?forceRefresh=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "importAustrianStores"],
+              "query": [
+                {
+                  "key": "forceRefresh",
+                  "value": "false"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Austrian Deposit Locations",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/location/getAustrianDepositLocations?lat=48.2082&lng=16.3738",
+              "host": ["{{baseUrl}}"],
+              "path": ["location", "getAustrianDepositLocations"],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "48.2082"
+                },
+                {
+                  "key": "lng",
+                  "value": "16.3738"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan",
+      "item": [
+        {
+          "name": "Record Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/scan/recordScan?barcode=1234567890&locationId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["scan", "recordScan"],
+              "query": [
+                {
+                  "key": "barcode",
+                  "value": "1234567890"
+                },
+                {
+                  "key": "locationId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Start Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/scan/startSession?locationId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["scan", "startSession"],
+              "query": [
+                {
+                  "key": "locationId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "End Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/scan/endSession?sessionId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["scan", "endSession"],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User Scans",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/scan/getUserScans?limit=10&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["scan", "getUserScans"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "item": [
+        {
+          "name": "Get Product by Barcode",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog/getProductByBarcode?barcode=1234567890",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "getProductByBarcode"],
+              "query": [
+                {
+                  "key": "barcode",
+                  "value": "1234567890"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Suggest Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/catalog/suggestProduct?barcode=1234567890&name=Product Name&brand=Brand Name&depositAmount=0.25",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "suggestProduct"],
+              "query": [
+                {
+                  "key": "barcode",
+                  "value": "1234567890"
+                },
+                {
+                  "key": "name",
+                  "value": "Product Name"
+                },
+                {
+                  "key": "brand",
+                  "value": "Brand Name"
+                },
+                {
+                  "key": "depositAmount",
+                  "value": "0.25"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Products",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog/searchProducts?query=cola",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "searchProducts"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "cola"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/catalog/verifyProduct?pendingProductId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "verifyProduct"],
+              "query": [
+                {
+                  "key": "pendingProductId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lookup Product External",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog/lookupProductExternal?barcode=1234567890",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "lookupProductExternal"],
+              "query": [
+                {
+                  "key": "barcode",
+                  "value": "1234567890"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Enrich Product Data",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog/enrichProductData?productId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["catalog", "enrichProductData"],
+              "query": [
+                {
+                  "key": "productId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stats",
+      "item": [
+        {
+          "name": "Get Totals",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stats/totals?period=week",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats", "totals"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "week"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Breakdown",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stats/breakdown?by=location&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats", "breakdown"],
+              "query": [
+                {
+                  "key": "by",
+                  "value": "location"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export CSV",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/stats/exportCSV?startDate=2025-01-01&endDate=2025-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats", "exportCSV"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2025-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2025-12-31"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Leaderboard",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats/getLeaderboard?period=month&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats", "getLeaderboard"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Social",
+      "item": [
+        {
+          "name": "Get Friends",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/social/getFriends",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "getFriends"]
+            }
+          }
+        },
+        {
+          "name": "Get User Badges",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/social/getUserBadges",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "getUserBadges"]
+            }
+          }
+        },
+        {
+          "name": "Award Badge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/social/awardBadge?badgeId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "awardBadge"],
+              "query": [
+                {
+                  "key": "badgeId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Check and Award Badges",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/social/checkAndAwardBadges?userId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "checkAndAwardBadges"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Badges",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/social/getAllBadges",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "getAllBadges"]
+            }
+          }
+        },
+        {
+          "name": "Create Badge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/social/createBadge?name=New Badge&description=Badge description&icon=badge_icon&criteria=Achieve 100 scans",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "createBadge"],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "New Badge"
+                },
+                {
+                  "key": "description",
+                  "value": "Badge description"
+                },
+                {
+                  "key": "icon",
+                  "value": "badge_icon"
+                },
+                {
+                  "key": "criteria",
+                  "value": "Achieve 100 scans"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Social Leaderboard",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/social/getLeaderboard?period=week&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["social", "getLeaderboard"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "week"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Greeting",
+      "item": [
+        {
+          "name": "Hello",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/greeting/hello?name=World",
+              "host": ["{{baseUrl}}"],
+              "path": ["greeting", "hello"],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "World"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

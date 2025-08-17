@@ -1,18 +1,18 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 
 import 'auth_service.dart';
 import '../core/theme/app_colors.dart';
-import '../core/config.dart';
+import 'api/api_client.dart';
 
 class StatsService {
   final Ref ref;
-  final String baseUrl = ApiConfig.baseUrl;
+  late final ApiClient _apiClient;
 
-  StatsService(this.ref);
+  StatsService(this.ref) {
+    _apiClient = ApiClient();
+  }
 
   // Get total statistics for date range
   Future<Map<String, dynamic>> getTotals({
@@ -23,22 +23,21 @@ class StatsService {
     if (authToken == null) throw Exception('Not authenticated');
 
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/stats/totals'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $authToken',
-        },
-        body: json.encode({
-          'startDate': startDate.toIso8601String(),
-          'endDate': endDate.toIso8601String(),
-        }),
-      );
+      // Set auth token for API client
+      _apiClient.setAuthToken(authToken);
 
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
+      // Note: The API expects period parameter, not date range
+      // Calculate period based on date range
+      final duration = endDate.difference(startDate);
+      String period = 'week';
+      if (duration.inDays > 60) {
+        period = 'year';
+      } else if (duration.inDays > 14) {
+        period = 'month';
       }
-      throw Exception('Failed to get totals');
+
+      final response = await _apiClient.getTotals(period: period);
+      return response;
     } catch (e) {
       debugPrint('Error getting totals: $e');
       // Return mock data as fallback
@@ -61,23 +60,14 @@ class StatsService {
     if (authToken == null) throw Exception('Not authenticated');
 
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/stats/breakdown'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $authToken',
-        },
-        body: json.encode({
-          'breakdownBy': breakdownBy,
-          'startDate': startDate.toIso8601String(),
-          'endDate': endDate.toIso8601String(),
-        }),
-      );
+      // Set auth token for API client
+      _apiClient.setAuthToken(authToken);
 
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
-      throw Exception('Failed to get breakdown');
+      final response = await _apiClient.getBreakdown(
+        by: breakdownBy,
+        limit: 10,
+      );
+      return response;
     } catch (e) {
       debugPrint('Error getting breakdown: $e');
       // Return mock data as fallback
@@ -94,54 +84,62 @@ class StatsService {
     if (authToken == null) throw Exception('Not authenticated');
 
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/stats/exportCSV'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $authToken',
-        },
-        body: json.encode({
-          'startDate': startDate.toIso8601String(),
-          'endDate': endDate.toIso8601String(),
-        }),
-      );
+      // Set auth token for API client
+      _apiClient.setAuthToken(authToken);
 
-      if (response.statusCode == 200) {
-        return response.body;
-      }
-      throw Exception('Failed to export CSV');
+      final csv = await _apiClient.exportCSV(
+        startDate: startDate.toIso8601String().split('T')[0],
+        endDate: endDate.toIso8601String().split('T')[0],
+      );
+      return csv;
     } catch (e) {
       debugPrint('Error exporting CSV: $e');
       return null;
     }
   }
 
-  // Get leaderboard
-  Future<List<LeaderboardEntry>> getLeaderboard({
-    required String period,
-    int limit = 10,
-  }) async {
+  // Get leaderboard data
+  Future<List<LeaderboardEntry>> getLeaderboard(
+      {String period = 'month'}) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/stats/getLeaderboard'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'period': period,
-          'limit': limit,
-        }),
+      final response = await _apiClient.getLeaderboard(
+        period: period,
+        limit: 20,
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return (data['leaderboard'] as List)
-            .map((e) => LeaderboardEntry.fromJson(e))
-            .toList();
-      }
-      throw Exception('Failed to get leaderboard');
+      // Convert response to LeaderboardEntry objects
+      return response.map((item) {
+        return LeaderboardEntry(
+          rank: item['rank'] ?? 0,
+          userId: (item['userId'] ?? item['id'] ?? '').toString(),
+          username: item['username'] ?? item['displayName'] ?? 'Unknown',
+          bottleCount: item['bottleCount'] ?? item['bottles'] ?? 0,
+          totalValue: (item['totalValue'] ?? item['value'] ?? 0.0).toDouble(),
+        );
+      }).toList();
     } catch (e) {
       debugPrint('Error getting leaderboard: $e');
-      // Return mock data
-      return _getMockLeaderboard();
+      // Return mock data as fallback
+      return [
+        LeaderboardEntry(
+            rank: 1,
+            userId: '1',
+            username: 'EcoWarrior',
+            bottleCount: 523,
+            totalValue: 130.75),
+        LeaderboardEntry(
+            rank: 2,
+            userId: '2',
+            username: 'GreenHero',
+            bottleCount: 456,
+            totalValue: 114.00),
+        LeaderboardEntry(
+            rank: 3,
+            userId: '3',
+            username: 'PfandMaster',
+            bottleCount: 398,
+            totalValue: 99.50),
+      ];
     }
   }
 
@@ -180,36 +178,10 @@ class StatsService {
     }
   }
 
-  List<LeaderboardEntry> _getMockLeaderboard() {
-    return [
-      LeaderboardEntry(
-        rank: 1,
-        userId: '1',
-        username: 'EcoWarrior',
-        bottleCount: 523,
-        totalValue: 130.75,
-      ),
-      LeaderboardEntry(
-        rank: 2,
-        userId: '2',
-        username: 'GreenHero',
-        bottleCount: 412,
-        totalValue: 103.00,
-      ),
-      LeaderboardEntry(
-        rank: 3,
-        userId: '3',
-        username: 'RecycleKing',
-        bottleCount: 387,
-        totalValue: 96.75,
-      ),
-    ];
-  }
-
   // Convert period data to chart spots
   List<FlSpot> convertToChartData(Map<String, dynamic> data, String period) {
     final List<FlSpot> spots = [];
-    
+
     if (data['chartData'] != null) {
       final chartData = data['chartData'] as List;
       for (int i = 0; i < chartData.length; i++) {
@@ -246,7 +218,7 @@ class StatsService {
           break;
       }
     }
-    
+
     return spots;
   }
 }
@@ -290,7 +262,8 @@ class DepositTypeBreakdown {
     required this.percentage,
   });
 
-  static List<DepositTypeBreakdown> fromBreakdownData(Map<String, dynamic> data) {
+  static List<DepositTypeBreakdown> fromBreakdownData(
+      Map<String, dynamic> data) {
     final breakdown = data['breakdown'] as List? ?? [];
     final colors = [
       AppColors.primaryLight,
@@ -299,18 +272,18 @@ class DepositTypeBreakdown {
       AppColors.warning,
       AppColors.info,
     ];
-    
+
     final List<DepositTypeBreakdown> result = [];
     final total = breakdown.fold<double>(
-      0, 
+      0,
       (sum, item) => sum + (item['count'] ?? 0).toDouble(),
     );
-    
+
     for (int i = 0; i < breakdown.length && i < colors.length; i++) {
       final item = breakdown[i];
       final count = (item['count'] ?? 0).toDouble();
       final percentage = total > 0 ? (count / total * 100) : 0.0;
-      
+
       result.add(DepositTypeBreakdown(
         label: item['type'] ?? item['brand'] ?? 'Unknown',
         value: count,
@@ -318,7 +291,7 @@ class DepositTypeBreakdown {
         percentage: '${percentage.toStringAsFixed(1)}%',
       ));
     }
-    
+
     return result;
   }
 }
@@ -329,24 +302,26 @@ final statsServiceProvider = Provider<StatsService>((ref) {
 });
 
 // Stats providers for different periods
-final currentMonthStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final currentMonthStatsProvider =
+    FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.read(statsServiceProvider);
   final now = DateTime.now();
   final startOfMonth = DateTime(now.year, now.month, 1);
   final endOfMonth = DateTime(now.year, now.month + 1, 0);
-  
+
   return service.getTotals(
     startDate: startOfMonth,
     endDate: endOfMonth,
   );
 });
 
-final containerTypeBreakdownProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final containerTypeBreakdownProvider =
+    FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.read(statsServiceProvider);
   final now = DateTime.now();
   final startOfMonth = DateTime(now.year, now.month, 1);
   final endOfMonth = DateTime(now.year, now.month + 1, 0);
-  
+
   return service.getBreakdown(
     breakdownBy: 'containerType',
     startDate: startOfMonth,
@@ -354,12 +329,13 @@ final containerTypeBreakdownProvider = FutureProvider<Map<String, dynamic>>((ref
   );
 });
 
-final locationBreakdownProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final locationBreakdownProvider =
+    FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.read(statsServiceProvider);
   final now = DateTime.now();
   final startOfMonth = DateTime(now.year, now.month, 1);
   final endOfMonth = DateTime(now.year, now.month + 1, 0);
-  
+
   return service.getBreakdown(
     breakdownBy: 'location',
     startDate: startOfMonth,
@@ -367,7 +343,8 @@ final locationBreakdownProvider = FutureProvider<Map<String, dynamic>>((ref) asy
   );
 });
 
-final monthlyLeaderboardProvider = FutureProvider<List<LeaderboardEntry>>((ref) async {
+final monthlyLeaderboardProvider =
+    FutureProvider<List<LeaderboardEntry>>((ref) async {
   final service = ref.read(statsServiceProvider);
   return service.getLeaderboard(period: 'month');
 });

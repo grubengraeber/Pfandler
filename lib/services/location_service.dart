@@ -1,19 +1,19 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'auth_service.dart';
 import '../models/store.dart';
-import '../core/config.dart';
+import 'api/api_client.dart';
 
 class LocationService {
   final Ref ref;
-  final String baseUrl = ApiConfig.baseUrl;
+  late final ApiClient _apiClient;
   Box? _locationCache;
 
   LocationService(this.ref) {
+    _apiClient = ApiClient();
     _init();
   }
 
@@ -54,48 +54,20 @@ class LocationService {
 
       // Try to fetch from server with timeout
       try {
-        final response = await http.post(
-          Uri.parse('$baseUrl/location/getAustrianDepositLocations'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'lat': lat,
-            'lng': lng,
-            'maxDistanceKm': maxDistanceKm,
-          }),
-        ).timeout(
-          const Duration(seconds: 5),
-          onTimeout: () {
-            throw Exception('Request timeout');
-          },
+        final locations = await _apiClient.getAustrianDepositLocations(
+          lat: lat,
+          lng: lng,
         );
 
-        if (response.statusCode == 200) {
-          try {
-            final data = json.decode(response.body);
-            // Handle both array and object response formats
-            List<dynamic> locations = [];
-            if (data is List) {
-              locations = data;
-            } else if (data is Map && data['locations'] != null) {
-              locations = data['locations'] as List? ?? [];
-            }
+        // Cache the result
+        await cache.put(
+            cacheKey,
+            json.encode({
+              'timestamp': DateTime.now().toIso8601String(),
+              'locations': locations,
+            }));
 
-
-            // Cache the result
-            await cache.put(
-                cacheKey,
-                json.encode({
-                  'timestamp': DateTime.now().toIso8601String(),
-                  'locations': locations,
-                }));
-
-            return _parseStores(locations);
-          } catch (parseError) {
-            rethrow;
-          }
-        }
-        
-        throw Exception('Failed to get locations: Status ${response.statusCode}');
+        return _parseStores(locations);
       } catch (e) {
         
         // Try to use any cached data, even if expired
@@ -124,44 +96,19 @@ class LocationService {
     double maxDistanceKm = 10.0,
   }) async {
     final authToken = ref.read(authTokenProvider);
+    
+    // Set auth token if available
+    if (authToken != null) {
+      _apiClient.setAuthToken(authToken);
+    }
 
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/location/nearby'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (authToken != null) 'Authorization': 'Bearer $authToken',
-        },
-        body: json.encode({
-          'lat': lat,
-          'lng': lng,
-          'maxDistanceKm': maxDistanceKm,
-        }),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Request timeout');
-        },
+      final locations = await _apiClient.getNearbyLocations(
+        lat: lat,
+        lng: lng,
       );
-
-      if (response.statusCode == 200) {
-        try {
-          final data = json.decode(response.body);
-          
-          // Handle both array and object response formats
-          List<dynamic> locations = [];
-          if (data is List) {
-            locations = data;
-          } else if (data is Map && data['locations'] != null) {
-            locations = data['locations'] as List? ?? [];
-          }
-          
-          return _parseStores(locations);
-        } catch (parseError) {
-          rethrow;
-        }
-      }
-      throw Exception('Failed to get nearby locations: Status ${response.statusCode}');
+      
+      return _parseStores(locations);
     } catch (e) {
       // Fallback to Austrian locations
       return getAustrianDepositLocations(
