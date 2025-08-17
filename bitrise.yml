@@ -9,7 +9,7 @@ app:
   - BITRISE_FLUTTER_PROJECT_LOCATION: "."
   - BITRISE_PROJECT_PATH: "."
   - BITRISE_EXPORT_METHOD: app-store
-  - FLUTTER_VERSION: "3.27.2"
+  - FLUTTER_VERSION: "3.35.0"
 
 # Workflow triggers - when to run workflows
 trigger_map:
@@ -36,6 +36,29 @@ workflows:
         inputs:
         - version: $FLUTTER_VERSION
         - is_update: 'false'
+    - script@1:
+        title: Verify Flutter and Dart versions
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            set -e
+            set -x
+            
+            echo "Checking Flutter and Dart versions..."
+            flutter --version
+            dart --version
+            
+            # Check if Dart version meets minimum requirement
+            DART_VERSION=$(dart --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+            echo "Detected Dart version: $DART_VERSION"
+            
+            # Compare versions (simple check for 3.4.0+)
+            if [[ $(echo "$DART_VERSION" | cut -d. -f1) -ge 3 ]] && [[ $(echo "$DART_VERSION" | cut -d. -f2) -ge 4 ]]; then
+                echo "✅ Dart version $DART_VERSION meets requirement >=3.4.0"
+            else
+                echo "❌ Dart version $DART_VERSION does not meet requirement >=3.4.0"
+                exit 1
+            fi
     - restore-dart-cache@1: {}
     - script@1:
         title: Run Flutter pub get
