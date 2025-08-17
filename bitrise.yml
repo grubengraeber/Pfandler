@@ -131,16 +131,7 @@ workflows:
         inputs:
         - notify_user_groups: testers|qa
         - is_enable_public_page: true
-    - slack@3:
-        inputs:
-        - webhook_url: "$SLACK_WEBHOOK_URL"
-        - channel: "#deployments"
-        - message: |
-            🚀 Staging build deployed!
-            App: Pfandler
-            Version: $BITRISE_BUILD_NUMBER
-            Branch: $BITRISE_GIT_BRANCH
-            Download: $BITRISE_PUBLIC_INSTALL_PAGE_URL
+    # Slack notification removed - webhook_url parameter not supported
 
   # Deploy to production
   deploy-production:
@@ -204,17 +195,7 @@ workflows:
     - deploy-to-bitrise-io@2:
         inputs:
         - notify_user_groups: all
-    - slack@3:
-        inputs:
-        - webhook_url: "$SLACK_WEBHOOK_URL"
-        - channel: "#deployments"
-        - message: |
-            🎉 Production release deployed!
-            App: Pfandler
-            Version: $BITRISE_APP_VERSION ($BITRISE_BUILD_NUMBER)
-            iOS: App Store Review
-            Android: Google Play Store
-            Commit: $BITRISE_GIT_COMMIT
+    # Slack notification removed - webhook_url parameter not supported
 
   # Nightly build workflow
   nightly-build:
@@ -265,7 +246,6 @@ meta:
 
 # Environment variables to be configured in Bitrise
 # Required secrets:
-# - SLACK_WEBHOOK_URL: Slack webhook for notifications
 # - APPLE_APP_ID: Apple App Store app ID
 # - APPLE_APP_SPECIFIC_PASSWORD: App-specific password for Apple
 # - GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: Google Play service account JSON
