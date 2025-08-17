@@ -37,6 +37,36 @@ workflows:
         - version: $FLUTTER_VERSION
         - is_update: 'false'
     - restore-dart-cache@1: {}
+    - script@1:
+        title: Run Flutter pub get
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            set -e
+            set -x
+            
+            cd "$BITRISE_FLUTTER_PROJECT_LOCATION"
+            flutter pub get
+    - script@1:
+        title: Run build_runner
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            set -e
+            set -x
+            
+            cd "$BITRISE_FLUTTER_PROJECT_LOCATION"
+            flutter pub run build_runner build --delete-conflicting-outputs || true
+    - script@1:
+        title: Generate launcher icons
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            set -e
+            set -x
+            
+            cd "$BITRISE_FLUTTER_PROJECT_LOCATION"
+            flutter pub run flutter_launcher_icons || true
     - flutter-analyze@1:
         inputs:
         - project_location: "$BITRISE_FLUTTER_PROJECT_LOCATION"
@@ -78,9 +108,9 @@ workflows:
     - change-value@1:
         title: Update API endpoint for staging
         inputs:
-        - file: lib/core/config.dart
-        - old_value: "http://localhost:8080"
-        - new_value: "https://staging-api.pfandler.app"
+        - file: lib/services/api/api_client.dart
+        - old_value: "https://api.pfandler.fabiotietz.com"
+        - new_value: "https://staging-api.pfandler.fabiotietz.com"
     - flutter-build@1:
         title: Build iOS Staging
         inputs:
@@ -127,9 +157,9 @@ workflows:
     - change-value@1:
         title: Update API endpoint for production
         inputs:
-        - file: lib/core/config.dart
-        - old_value: "http://localhost:8080"
-        - new_value: "https://api.pfandler.app"
+        - file: lib/services/api/api_client.dart
+        - old_value: "https://api.pfandler.fabiotietz.com"
+        - new_value: "https://api.pfandler.fabiotietz.com"
     - certificate-and-profile-installer@1: {}
     - flutter-build@1:
         title: Build iOS Production
