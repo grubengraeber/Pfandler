@@ -38,7 +38,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final MapController _mapController = MapController();
   double _currentZoom = 12.0;
-  Size _mapSize = const Size(400, 600);
   bool _isLoadingLocation = false;
   
   @override
@@ -231,10 +230,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ],
       ),
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _mapController,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: [
+              FlutterMap(
+                mapController: _mapController,
             options: MapOptions(
               initialCenter: userLocation ?? const LatLng(48.2082, 16.3738), // Use user location or Vienna as default
               initialZoom: 12, // City-level zoom
@@ -333,21 +334,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // Store markers
               storesAsync.when(
                 data: (stores) {
-                  // Get map size for clustering calculations
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    final renderBox = context.findRenderObject() as RenderBox?;
-                    if (renderBox != null) {
-                      _mapSize = renderBox.size;
-                    }
-                  });
-
-                  // Cluster the stores
+                  // Cluster the stores using constraints from LayoutBuilder
                   final clusters = MapClustering.clusterStores(
                     stores,
                     _currentZoom,
                     mapCenter,
-                    _mapSize.width,
-                    _mapSize.height,
+                    constraints.maxWidth > 0 ? constraints.maxWidth : 400,
+                    constraints.maxHeight > 0 ? constraints.maxHeight : 600,
                   );
 
                   return MarkerLayer(
@@ -446,7 +439,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
           ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
