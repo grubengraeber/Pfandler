@@ -9,7 +9,7 @@ app:
   - BITRISE_FLUTTER_PROJECT_LOCATION: "."
   - BITRISE_PROJECT_PATH: "."
   - BITRISE_EXPORT_METHOD: app-store
-  - FLUTTER_VERSION: "3.35.0"
+  - FLUTTER_VERSION: "3.24.5"
 
 # Workflow triggers - when to run workflows
 trigger_map:
