@@ -5,6 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/bottle.dart';
 import '../../services/sync_service.dart';
 
@@ -62,7 +63,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error looking up barcode: $e'),
+            content: Text('${AppLocalizations.of(context)?.translate('errorLookingUpBarcode') ?? 'Error looking up barcode'}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -78,7 +79,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
     final barcode = _barcodeController.text.trim();
     if (barcode.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a barcode')),
+        SnackBar(content: Text(AppLocalizations.of(context)?.translate('pleaseEnterBarcode') ?? 'Please enter a barcode')),
       );
       return;
     }
@@ -111,8 +112,8 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bottle added successfully!'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)?.translate('bottleAddedSuccess') ?? 'Bottle added successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -122,7 +123,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add bottle: $e'),
+            content: Text('${AppLocalizations.of(context)?.translate('failedToAddBottle') ?? 'Failed to add bottle'}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -138,13 +139,13 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Product Not Found'),
+        title: Text(AppLocalizations.of(context)?.translate('productNotFound') ?? 'Product Not Found'),
         content: Text(
-            'No product found for barcode: $barcode\n\nWould you like to add it manually?'),
+            '${AppLocalizations.of(context)?.translate('noProductFound') ?? 'No product found for barcode'}: $barcode\n\n${AppLocalizations.of(context)?.translate('wouldYouLikeToAddManually') ?? 'Would you like to add it manually?'}'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)?.cancel ?? 'Cancel'),
           ),
           TextButton(
             onPressed: () {
@@ -152,7 +153,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
               Navigator.of(context)
                   .pushNamed('/manual-entry', arguments: barcode);
             },
-            child: const Text('Add Manually'),
+            child: Text(AppLocalizations.of(context)?.translate('addManually') ?? 'Add Manually'),
           ),
         ],
       ),
@@ -187,16 +188,17 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scan Barcode'),
+        title: Text(l10n?.scanBarcode ?? 'Scan Barcode'),
         actions: [
           if (!_useCameraMode)
             IconButton(
               icon: const Icon(CupertinoIcons.camera),
               onPressed: _resetScanner,
-              tooltip: 'Scan Another',
+              tooltip: l10n?.translate('scanAnother') ?? 'Scan Another',
             ),
         ],
       ),
@@ -268,7 +270,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                             left: 0,
                             right: 0,
                             child: Text(
-                              'Align barcode within frame',
+                              l10n?.translate('alignBarcodeWithinFrame') ?? 'Align barcode within frame',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: Colors.white,
@@ -334,7 +336,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                           ),
                           const SizedBox(height: AppSpacing.md),
                           Text(
-                            'Barcode Scanned',
+                            l10n?.translate('barcodeScanned') ?? 'Barcode Scanned',
                             style: theme.textTheme.titleMedium,
                           ),
                           const SizedBox(height: AppSpacing.xs),
@@ -353,7 +355,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
 
             // Manual barcode entry
             Text(
-              'Or Enter Barcode Manually',
+              l10n?.translate('orEnterBarcodeManually') ?? 'Or Enter Barcode Manually',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -368,8 +370,8 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                     controller: _barcodeController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: 'Barcode Number',
-                      hintText: 'Enter barcode digits',
+                      labelText: l10n?.translate('barcodeNumber') ?? 'Barcode Number',
+                      hintText: l10n?.translate('enterBarcodeDigits') ?? 'Enter barcode digits',
                       prefixIcon: const Icon(CupertinoIcons.barcode),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(AppSpacing.md),
@@ -388,15 +390,26 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppSpacing.md),
                     ),
+                    foregroundColor: Colors.white,
+                    backgroundColor: theme.colorScheme.primary,
                   ),
                   icon: _isProcessing
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                      : const Icon(CupertinoIcons.search),
-                  label: Text(_isProcessing ? 'Searching...' : 'Look up'),
+                      : const Icon(
+                          CupertinoIcons.search,
+                          color: Colors.white,
+                        ),
+                  label: Text(
+                    _isProcessing ? (l10n?.translate('searching') ?? 'Searching...') : (l10n?.translate('lookUp') ?? 'Look up'),
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
               ],
             ),
@@ -514,7 +527,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                         child: ElevatedButton.icon(
                           onPressed: _isProcessing ? null : _addBottle,
                           icon: const Icon(CupertinoIcons.plus_circle_fill),
-                          label: const Text('Add to Collection'),
+                          label: Text(l10n?.translate('addToCollection') ?? 'Add to Collection'),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
                                 vertical: AppSpacing.md),
@@ -550,7 +563,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         Text(
-                          'Tips',
+                          l10n?.translate('tips') ?? 'Tips',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: theme.colorScheme.primary,
@@ -560,10 +573,10 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      '• Point camera at barcode and hold steady\n'
-                      '• Use torch button in low light conditions\n'
-                      '• Clean the barcode for better scanning\n'
-                      '• Most Austrian deposit bottles have 13-digit EAN codes',
+                      '• ${l10n?.translate('tipPointCamera') ?? 'Point camera at barcode and hold steady'}\n'
+                      '• ${l10n?.translate('tipUseTorch') ?? 'Use torch button in low light conditions'}\n'
+                      '• ${l10n?.translate('tipCleanBarcode') ?? 'Clean the barcode for better scanning'}\n'
+                      '• ${l10n?.translate('tipAustrianBottles') ?? 'Most Austrian deposit bottles have 13-digit EAN codes'}',
                       style: theme.textTheme.bodySmall,
                     ),
                   ],
