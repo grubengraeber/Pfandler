@@ -35,7 +35,7 @@ workflows:
     - flutter-installer@1:
         inputs:
         - version: $FLUTTER_VERSION
-        - is_update: 'false'
+        - is_update: 'true'
     - script@1:
         title: Verify Flutter and Dart versions
         inputs:
@@ -57,6 +57,8 @@ workflows:
                 echo "✅ Dart version $DART_VERSION meets requirement >=3.4.0"
             else
                 echo "❌ Dart version $DART_VERSION does not meet requirement >=3.4.0"
+                echo "Expected Flutter $FLUTTER_VERSION to include Dart >=3.4.0"
+                echo "This might indicate an issue with the Flutter installation step"
                 exit 1
             fi
     - restore-dart-cache@1: {}

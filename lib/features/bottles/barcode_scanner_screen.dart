@@ -294,10 +294,11 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                               onPressed: () => _scannerController.toggleTorch(),
                               backgroundColor: theme.colorScheme.primary,
                               child: ValueListenableBuilder(
-                                valueListenable: _scannerController.torchState,
+                                valueListenable: _scannerController,
                                 builder: (context, state, child) {
+                                  final torchState = state.torchState;
                                   return Icon(
-                                    state == TorchState.on
+                                    torchState == TorchState.on
                                         ? CupertinoIcons.bolt_fill
                                         : CupertinoIcons.bolt,
                                     color: Colors.white,
