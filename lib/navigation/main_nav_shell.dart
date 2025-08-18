@@ -25,6 +25,7 @@ class MainNavShell extends ConsumerWidget {
       drawer: const MenuDrawer(),
       body: const HomeScreen(),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'add_bottle_fab',
         onPressed: () => _showAddBottleMenu(context),
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: Colors.white,

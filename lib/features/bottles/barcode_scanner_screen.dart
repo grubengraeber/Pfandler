@@ -291,6 +291,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                             bottom: AppSpacing.lg,
                             right: AppSpacing.lg,
                             child: FloatingActionButton.small(
+                              heroTag: 'torch_toggle_fab',
                               onPressed: () => _scannerController.toggleTorch(),
                               backgroundColor: theme.colorScheme.primary,
                               child: ValueListenableBuilder(
@@ -312,6 +313,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                             bottom: AppSpacing.lg,
                             left: AppSpacing.lg,
                             child: FloatingActionButton.small(
+                              heroTag: 'camera_switch_fab',
                               onPressed: () => _scannerController.switchCamera(),
                               backgroundColor: theme.colorScheme.primary,
                               child: const Icon(
@@ -376,7 +378,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
-                ElevatedButton(
+                ElevatedButton.icon(
                   onPressed: _isProcessing ? null : _lookupBarcode,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
@@ -387,13 +389,14 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
                       borderRadius: BorderRadius.circular(AppSpacing.md),
                     ),
                   ),
-                  child: _isProcessing
+                  icon: _isProcessing
                       ? const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(CupertinoIcons.search),
+                  label: Text(_isProcessing ? 'Searching...' : 'Look up'),
                 ),
               ],
             ),
