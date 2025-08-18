@@ -101,11 +101,24 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> getCurrentUser() async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/auth/getCurrentUser'),
-      headers: _headers,
-    );
-    return _handleResponse(response);
+    // Try with token as query parameter (as backend expects)
+    if (_authToken != null) {
+      final uri = Uri.parse('$baseUrl/auth/getCurrentUser').replace(
+        queryParameters: {
+          'token': _authToken!,
+        },
+      );
+      
+      final response = await _client.post(uri, headers: _headers);
+      return _handleResponse(response);
+    } else {
+      // If no token, try without query parameter (might fail but gives proper error)
+      final response = await _client.post(
+        Uri.parse('$baseUrl/auth/getCurrentUser'),
+        headers: _headers,
+      );
+      return _handleResponse(response);
+    }
   }
 
   Future<Map<String, dynamic>> linkDevice({
