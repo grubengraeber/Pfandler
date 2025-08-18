@@ -58,6 +58,7 @@ class LocationService {
         final locations = await _apiClient.getAustrianDepositLocations(
           lat: lat,
           lng: lng,
+          maxDistanceKm: 50.0, // Default to 50km radius
         );
 
         // Cache the result
@@ -103,9 +104,10 @@ class LocationService {
     }
 
     try {
-      final locations = await _apiClient.getNearbyLocations(
+      final locations = await _apiClient.findNearbyLocations(
         lat: lat,
         lng: lng,
+        maxDistance: maxDistanceKm,
       );
 
       return _parseStores(locations);

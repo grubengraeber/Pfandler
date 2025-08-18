@@ -256,12 +256,27 @@ class SyncService extends StateNotifier<SyncState> {
       // Try to fetch from server
       final connectivityResult = await Connectivity().checkConnectivity();
       if (!connectivityResult.contains(ConnectivityResult.none)) {
-        // TODO: Implement using ApiClient
-        // final product = await _apiClient.getProductByBarcode(barcode: barcode);
-        // if (product != null) {
-        //   await _syncBox?.put('product_$barcode', json.encode(product));
-        //   return product;
-        // }
+        try {
+          // Try to get product from catalog first
+          final product = await _apiClient.getProductByBarcode(barcode: barcode);
+          if (product.isNotEmpty) {
+            // Cache the product
+            await _syncBox?.put('product_$barcode', json.encode(product));
+            return product;
+          }
+        } catch (e) {
+          // If not found in catalog, try external lookup
+          try {
+            final externalProduct = await _apiClient.lookupProductExternal(barcode: barcode);
+            if (externalProduct.isNotEmpty) {
+              // Cache the product
+              await _syncBox?.put('product_$barcode', json.encode(externalProduct));
+              return externalProduct;
+            }
+          } catch (e2) {
+            debugPrint('External lookup also failed: $e2');
+          }
+        }
       }
     } catch (e) {
       debugPrint('Failed to scan barcode: $e');

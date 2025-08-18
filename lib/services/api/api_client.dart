@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+/// API Client - Matching Postman Collection Format
+/// All endpoints use JSON body for requests as per the backend specification
 class ApiClient {
   final String baseUrl = 'https://api.pfandler.fabiotietz.com';
   final http.Client _client;
@@ -32,38 +34,42 @@ class ApiClient {
     return headers;
   }
 
-  // Auth endpoints
+  // ============================================================================
+  // AUTH ENDPOINTS
+  // ============================================================================
+
+  /// Register a new user with email and password
   Future<Map<String, dynamic>> registerWithEmail({
     required String email,
     required String password,
-    required String name,
   }) async {
-    final uri = Uri.parse('$baseUrl/auth/registerWithEmail').replace(
-      queryParameters: {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/auth/registerWithEmail'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
         'email': email,
         'password': password,
-        'name': name,
-      },
+      }),
     );
-
-    final response = await _client.post(uri);
     return _handleResponse(response);
   }
 
+  /// Login with email and password
   Future<Map<String, dynamic>> loginWithEmail({
     required String email,
     required String password,
   }) async {
-    final uri = Uri.parse('$baseUrl/auth/loginWithEmail').replace(
-      queryParameters: {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/auth/loginWithEmail'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
         'email': email,
         'password': password,
-      },
+      }),
     );
-
-    final response = await _client.post(uri);
+    
     final data = _handleResponse(response);
-
+    
     // Store tokens if login successful
     if (data['token'] != null) {
       _authToken = data['token'];
@@ -71,478 +77,561 @@ class ApiClient {
     if (data['refreshToken'] != null) {
       _refreshToken = data['refreshToken'];
     }
-
+    
     return data;
   }
 
-  Future<Map<String, dynamic>> refreshAuthToken() async {
-    if (_refreshToken == null) {
-      throw Exception('No refresh token available');
-    }
-
-    final uri = Uri.parse('$baseUrl/auth/refreshToken').replace(
-      queryParameters: {
-        'refreshToken': _refreshToken,
-      },
-    );
-
-    final response = await _client.post(uri);
-    final data = _handleResponse(response);
-
-    // Update tokens
-    if (data['token'] != null) {
-      _authToken = data['token'];
-    }
-    if (data['refreshToken'] != null) {
-      _refreshToken = data['refreshToken'];
-    }
-
-    return data;
-  }
-
+  /// Get current authenticated user information
   Future<Map<String, dynamic>> getCurrentUser() async {
-    // Try with token as query parameter (as backend expects)
-    if (_authToken != null) {
-      final uri = Uri.parse('$baseUrl/auth/getCurrentUser').replace(
-        queryParameters: {
-          'token': _authToken!,
-        },
-      );
-      
-      final response = await _client.post(uri, headers: _headers);
-      return _handleResponse(response);
-    } else {
-      // If no token, try without query parameter (might fail but gives proper error)
-      final response = await _client.post(
-        Uri.parse('$baseUrl/auth/getCurrentUser'),
-        headers: _headers,
-      );
-      return _handleResponse(response);
-    }
+    final response = await _client.post(
+      Uri.parse('$baseUrl/auth/getCurrentUser'),
+      headers: _headers,
+      body: jsonEncode({}),
+    );
+    return _handleResponse(response);
   }
 
+  /// Link a device to the user account
   Future<Map<String, dynamic>> linkDevice({
     required String deviceId,
-    required String deviceToken,
+    required String deviceName,
   }) async {
-    final uri = Uri.parse('$baseUrl/auth/linkDevice').replace(
-      queryParameters: {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/auth/linkDevice'),
+      headers: _headers,
+      body: jsonEncode({
         'deviceId': deviceId,
-        'deviceToken': deviceToken,
-      },
-    );
-
-    final response = await _client.post(uri, headers: _headers);
-    return _handleResponse(response);
-  }
-
-  Future<void> logout() async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/auth/logout'),
-      headers: _headers,
-    );
-    _handleResponse(response);
-    clearTokens();
-  }
-
-  Future<Map<String, dynamic>> changePassword({
-    required String oldPassword,
-    required String newPassword,
-  }) async {
-    final uri = Uri.parse('$baseUrl/auth/changePassword').replace(
-      queryParameters: {
-        'oldPassword': oldPassword,
-        'newPassword': newPassword,
-      },
-    );
-
-    final response = await _client.post(uri, headers: _headers);
-    return _handleResponse(response);
-  }
-
-  // Location endpoints
-  Future<List<dynamic>> getNearbyLocations({
-    required double lat,
-    required double lng,
-  }) async {
-    final uri = Uri.parse('$baseUrl/location/nearby').replace(
-      queryParameters: {
-        'lat': lat.toString(),
-        'lng': lng.toString(),
-      },
-    );
-
-    final response = await _client.post(uri);
-    return _handleResponse(response);
-  }
-
-  Future<List<dynamic>> searchAllAustria({
-    required double lat,
-    required double lng,
-  }) async {
-    final uri = Uri.parse('$baseUrl/location/searchAllAustria').replace(
-      queryParameters: {
-        'lat': lat.toString(),
-        'lng': lng.toString(),
-      },
-    );
-
-    final response = await _client.post(uri);
-    return _handleResponse(response);
-  }
-
-  Future<Map<String, dynamic>> reportLocationStatus({
-    required int locationId,
-    required String status,
-    String? notes,
-  }) async {
-    final params = {
-      'locationId': locationId.toString(),
-      'status': status,
-    };
-    if (notes != null) {
-      params['notes'] = notes;
-    }
-
-    final uri = Uri.parse('$baseUrl/location/reportStatus').replace(
-      queryParameters: params,
-    );
-
-    final response = await _client.post(uri, headers: _headers);
-    return _handleResponse(response);
-  }
-
-  Future<Map<String, dynamic>> addLocation({
-    required String name,
-    required double lat,
-    required double lng,
-    required String type,
-    required String address,
-  }) async {
-    final uri = Uri.parse('$baseUrl/location/addLocation').replace(
-      queryParameters: {
-        'name': name,
-        'lat': lat.toString(),
-        'lng': lng.toString(),
-        'type': type,
-        'address': address,
-      },
-    );
-
-    final response = await _client.post(uri, headers: _headers);
-    return _handleResponse(response);
-  }
-
-  Future<List<dynamic>> getFavorites() async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/location/getFavorites'),
-      headers: _headers,
+        'deviceName': deviceName,
+      }),
     );
     return _handleResponse(response);
   }
 
-  Future<Map<String, dynamic>> addFavorite({required int locationId}) async {
-    final uri = Uri.parse('$baseUrl/location/addFavorite').replace(
-      queryParameters: {
-        'locationId': locationId.toString(),
-      },
-    );
+  // ============================================================================
+  // CATALOG ENDPOINTS
+  // ============================================================================
 
-    final response = await _client.post(uri, headers: _headers);
-    return _handleResponse(response);
-  }
-
-  Future<void> removeFavorite({required int favoriteId}) async {
-    final uri = Uri.parse('$baseUrl/location/removeFavorite').replace(
-      queryParameters: {
-        'favoriteId': favoriteId.toString(),
-      },
-    );
-
-    final response = await _client.post(uri, headers: _headers);
-    _handleResponse(response);
-  }
-
-  Future<List<dynamic>> getAustrianDepositLocations({
-    required double lat,
-    required double lng,
-  }) async {
-    final uri =
-        Uri.parse('$baseUrl/location/getAustrianDepositLocations').replace(
-      queryParameters: {
-        'lat': lat.toString(),
-        'lng': lng.toString(),
-      },
-    );
-
-    final response = await _client.post(uri);
-    return _handleResponse(response);
-  }
-
-  // Scan endpoints
-  Future<Map<String, dynamic>> recordScan({
+  /// Get product information by barcode
+  Future<Map<String, dynamic>> getProductByBarcode({
     required String barcode,
-    required int locationId,
   }) async {
-    final uri = Uri.parse('$baseUrl/scan/recordScan').replace(
-      queryParameters: {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/catalog/getProductByBarcode'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
         'barcode': barcode,
-        'locationId': locationId.toString(),
-      },
+      }),
     );
-
-    final response = await _client.post(uri, headers: _headers);
     return _handleResponse(response);
   }
 
-  Future<Map<String, dynamic>> startSession({required int locationId}) async {
-    final uri = Uri.parse('$baseUrl/scan/startSession').replace(
-      queryParameters: {
-        'locationId': locationId.toString(),
-      },
-    );
-
-    final response = await _client.post(uri, headers: _headers);
-    return _handleResponse(response);
-  }
-
-  Future<Map<String, dynamic>> endSession({required int sessionId}) async {
-    final uri = Uri.parse('$baseUrl/scan/endSession').replace(
-      queryParameters: {
-        'sessionId': sessionId.toString(),
-      },
-    );
-
-    final response = await _client.post(uri, headers: _headers);
-    return _handleResponse(response);
-  }
-
-  Future<List<dynamic>> getUserScans({
-    int limit = 10,
-    int offset = 0,
-  }) async {
-    final uri = Uri.parse('$baseUrl/scan/getUserScans').replace(
-      queryParameters: {
-        'limit': limit.toString(),
-        'offset': offset.toString(),
-      },
-    );
-
-    final response = await _client.post(uri, headers: _headers);
-    return _handleResponse(response);
-  }
-
-  // Catalog endpoints
-  Future<Map<String, dynamic>> getProductByBarcode(
-      {required String barcode}) async {
-    final uri = Uri.parse('$baseUrl/catalog/getProductByBarcode').replace(
-      queryParameters: {
-        'barcode': barcode,
-      },
-    );
-
-    final response = await _client.post(uri);
-    return _handleResponse(response);
-  }
-
+  /// Suggest a new product to be added to the catalog
   Future<Map<String, dynamic>> suggestProduct({
     required String barcode,
     required String name,
     required String brand,
-    required double depositAmount,
+    required int volumeML,
+    required String containerType,
+    required int defaultDepositCents,
   }) async {
-    final uri = Uri.parse('$baseUrl/catalog/suggestProduct').replace(
-      queryParameters: {
-        'barcode': barcode,
-        'name': name,
-        'brand': brand,
-        'depositAmount': depositAmount.toString(),
-      },
+    final response = await _client.post(
+      Uri.parse('$baseUrl/catalog/suggestProduct'),
+      headers: _headers,
+      body: jsonEncode({
+        'data': {
+          'barcode': barcode,
+          'name': name,
+          'brand': brand,
+          'volumeML': volumeML,
+          'containerType': containerType,
+          'defaultDepositCents': defaultDepositCents,
+        },
+      }),
     );
-
-    final response = await _client.post(uri, headers: _headers);
     return _handleResponse(response);
   }
 
-  Future<List<dynamic>> searchProducts({required String query}) async {
-    final uri = Uri.parse('$baseUrl/catalog/searchProducts').replace(
-      queryParameters: {
+  /// Search products by query
+  Future<List<dynamic>> searchProducts({
+    required String query,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/catalog/searchProducts'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
         'query': query,
-      },
+        'limit': limit,
+        'offset': offset,
+      }),
     );
-
-    final response = await _client.post(uri);
     return _handleResponse(response);
   }
 
-  Future<Map<String, dynamic>> lookupProductExternal(
-      {required String barcode}) async {
-    final uri = Uri.parse('$baseUrl/catalog/lookupProductExternal').replace(
-      queryParameters: {
+  /// Verify a product (admin/moderator function)
+  Future<Map<String, dynamic>> verifyProduct({
+    required int productId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/catalog/verifyProduct'),
+      headers: _headers,
+      body: jsonEncode({
+        'productId': productId,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Lookup product from external APIs (OpenFoodFacts, OpenGTIN)
+  Future<Map<String, dynamic>> lookupProductExternal({
+    required String barcode,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/catalog/lookupProductExternal'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
         'barcode': barcode,
-      },
+      }),
     );
-
-    final response = await _client.post(uri);
     return _handleResponse(response);
   }
 
-  // Stats endpoints
-  Future<Map<String, dynamic>> getTotals({String period = 'week'}) async {
-    final uri = Uri.parse('$baseUrl/stats/totals').replace(
-      queryParameters: {
-        'period': period,
-      },
+  /// Enrich existing product data with external sources
+  Future<Map<String, dynamic>> enrichProductData({
+    required int productId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/catalog/enrichProductData'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'productId': productId,
+      }),
     );
-
-    final response = await _client.post(uri, headers: _headers);
     return _handleResponse(response);
   }
 
+  // ============================================================================
+  // SCAN ENDPOINTS
+  // ============================================================================
+
+  /// Start a new scan session at a location
+  Future<Map<String, dynamic>> startSession({
+    required int locationId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/scan/startSession'),
+      headers: _headers,
+      body: jsonEncode({
+        'locationId': locationId,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Record a single bottle scan
+  Future<Map<String, dynamic>> recordScan({
+    required int sessionId,
+    required String barcode,
+    required int volumeML,
+    required String containerType,
+    required int depositCents,
+    String source = 'scan',
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/scan/recordScan'),
+      headers: _headers,
+      body: jsonEncode({
+        'scanInput': {
+          'sessionId': sessionId,
+          'barcode': barcode,
+          'volumeML': volumeML,
+          'containerType': containerType,
+          'depositCents': depositCents,
+          'source': source,
+        },
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// End a scan session
+  Future<Map<String, dynamic>> endSession({
+    required int sessionId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/scan/endSession'),
+      headers: _headers,
+      body: jsonEncode({
+        'sessionId': sessionId,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Bulk upload multiple scans at once
+  Future<Map<String, dynamic>> bulkUpload({
+    required List<Map<String, dynamic>> scans,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/scan/bulkUpload'),
+      headers: _headers,
+      body: jsonEncode({
+        'scans': scans,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Get user's scan history
+  Future<List<dynamic>> getUserScans({
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/scan/getUserScans'),
+      headers: _headers,
+      body: jsonEncode({
+        'limit': limit,
+        'offset': offset,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  // ============================================================================
+  // LOCATION ENDPOINTS
+  // ============================================================================
+
+  /// Find nearby locations (local or Austria-wide)
+  /// If maxDistance is null or > 100km, searches all of Austria
+  Future<List<dynamic>> findNearbyLocations({
+    required double lat,
+    required double lng,
+    String? type,
+    double? maxDistance,
+  }) async {
+    final filters = <String, dynamic>{};
+    if (type != null) {
+      filters['type'] = type;
+    }
+    if (maxDistance != null) {
+      filters['maxDistance'] = maxDistance;
+    }
+
+    final response = await _client.post(
+      Uri.parse('$baseUrl/location/nearby'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'lat': lat,
+        'lng': lng,
+        'filters': filters,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Report location status (e.g., machine full, out of order)
+  Future<Map<String, dynamic>> reportLocationStatus({
+    required int locationId,
+    required String status,
+    String? note,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/location/reportStatus'),
+      headers: _headers,
+      body: jsonEncode({
+        'locationId': locationId,
+        'status': status,
+        if (note != null) 'note': note,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Add a new location
+  Future<Map<String, dynamic>> addLocation({
+    required String name,
+    required String type,
+    required double lat,
+    required double lng,
+    required String address,
+    String? googleMapsUrl,
+    String? acceptsJson,
+    String? openingHoursJson,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/location/addLocation'),
+      headers: _headers,
+      body: jsonEncode({
+        'suggestedLocation': {
+          'name': name,
+          'type': type,
+          'lat': lat,
+          'lng': lng,
+          'address': address,
+          if (googleMapsUrl != null) 'googleMapsUrl': googleMapsUrl,
+          if (acceptsJson != null) 'acceptsJson': acceptsJson,
+          if (openingHoursJson != null) 'openingHoursJson': openingHoursJson,
+        },
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Get user's favorite locations
+  Future<List<dynamic>> getFavoriteLocations() async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/location/getFavorites'),
+      headers: _headers,
+      body: jsonEncode({}),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Add a location to favorites
+  Future<Map<String, dynamic>> addFavoriteLocation({
+    required int locationId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/location/addFavorite'),
+      headers: _headers,
+      body: jsonEncode({
+        'locationId': locationId,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Remove a location from favorites
+  Future<void> removeFavoriteLocation({
+    required int locationId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/location/removeFavorite'),
+      headers: _headers,
+      body: jsonEncode({
+        'locationId': locationId,
+      }),
+    );
+    _handleResponse(response);
+  }
+
+  /// Get Austrian deposit locations
+  Future<List<dynamic>> getAustrianDepositLocations({
+    required double lat,
+    required double lng,
+    required double maxDistanceKm,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/location/getAustrianDepositLocations'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'lat': lat,
+        'lng': lng,
+        'maxDistanceKm': maxDistanceKm,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Import Austrian stores from OpenStreetMap
+  Future<Map<String, dynamic>> importAustrianStores({
+    required double lat,
+    required double lng,
+    required double radiusKm,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/location/importAustrianStores'),
+      headers: _headers,
+      body: jsonEncode({
+        'lat': lat,
+        'lng': lng,
+        'radiusKm': radiusKm,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  // ============================================================================
+  // STATS ENDPOINTS
+  // ============================================================================
+
+  /// Get total statistics for a date range
+  Future<Map<String, dynamic>> getTotals({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/stats/totals'),
+      headers: _headers,
+      body: jsonEncode({
+        'startDate': startDate.toUtc().toIso8601String(),
+        'endDate': endDate.toUtc().toIso8601String(),
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Get breakdown statistics by category
   Future<Map<String, dynamic>> getBreakdown({
-    String by = 'location',
-    int limit = 10,
+    required String breakdownBy, // containerType, month, location, brand
+    required DateTime startDate,
+    required DateTime endDate,
   }) async {
-    final uri = Uri.parse('$baseUrl/stats/breakdown').replace(
-      queryParameters: {
-        'by': by,
-        'limit': limit.toString(),
-      },
+    final response = await _client.post(
+      Uri.parse('$baseUrl/stats/breakdown'),
+      headers: _headers,
+      body: jsonEncode({
+        'breakdownBy': breakdownBy,
+        'startDate': startDate.toUtc().toIso8601String(),
+        'endDate': endDate.toUtc().toIso8601String(),
+      }),
     );
-
-    final response = await _client.post(uri, headers: _headers);
     return _handleResponse(response);
   }
 
+  /// Export statistics as CSV
   Future<String> exportCSV({
-    required String startDate,
-    required String endDate,
+    required DateTime startDate,
+    required DateTime endDate,
   }) async {
-    final uri = Uri.parse('$baseUrl/stats/exportCSV').replace(
-      queryParameters: {
-        'startDate': startDate,
-        'endDate': endDate,
-      },
+    final response = await _client.post(
+      Uri.parse('$baseUrl/stats/exportCSV'),
+      headers: _headers,
+      body: jsonEncode({
+        'startDate': startDate.toUtc().toIso8601String(),
+        'endDate': endDate.toUtc().toIso8601String(),
+      }),
     );
-
-    final response = await _client.post(uri, headers: _headers);
+    
     if (response.statusCode == 200) {
       return response.body;
     }
-    throw Exception('Failed to export CSV: ${response.statusCode}');
+    throw ApiException('Failed to export CSV', response.statusCode);
   }
 
+  /// Get leaderboard
   Future<List<dynamic>> getLeaderboard({
-    String period = 'month',
-    int limit = 20,
+    String period = 'month', // week, month, year, all
+    int limit = 10,
   }) async {
-    final uri = Uri.parse('$baseUrl/stats/getLeaderboard').replace(
-      queryParameters: {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/stats/getLeaderboard'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
         'period': period,
-        'limit': limit.toString(),
-      },
+        'limit': limit,
+      }),
     );
-
-    final response = await _client.post(uri);
     return _handleResponse(response);
   }
 
-  // Social endpoints
+  // ============================================================================
+  // SOCIAL ENDPOINTS
+  // ============================================================================
+
+  /// Get user's friends list
   Future<List<dynamic>> getFriends() async {
     final response = await _client.post(
       Uri.parse('$baseUrl/social/getFriends'),
       headers: _headers,
+      body: jsonEncode({}),
     );
     return _handleResponse(response);
   }
 
+  /// Get user's badges
   Future<List<dynamic>> getUserBadges() async {
     final response = await _client.post(
       Uri.parse('$baseUrl/social/getUserBadges'),
       headers: _headers,
+      body: jsonEncode({}),
     );
     return _handleResponse(response);
   }
 
-  Future<Map<String, dynamic>> awardBadge({required int badgeId}) async {
-    final uri = Uri.parse('$baseUrl/social/awardBadge').replace(
-      queryParameters: {
-        'badgeId': badgeId.toString(),
-      },
+  /// Award a badge to a user
+  Future<Map<String, dynamic>> awardBadge({
+    required int userId,
+    required int badgeId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/social/awardBadge'),
+      headers: _headers,
+      body: jsonEncode({
+        'userId': userId,
+        'badgeId': badgeId,
+      }),
     );
-
-    final response = await _client.post(uri, headers: _headers);
     return _handleResponse(response);
   }
 
-  Future<List<dynamic>> checkAndAwardBadges({required int userId}) async {
-    final uri = Uri.parse('$baseUrl/social/checkAndAwardBadges').replace(
-      queryParameters: {
-        'userId': userId.toString(),
-      },
+  /// Check and award badges based on user achievements
+  Future<List<dynamic>> checkAndAwardBadges({
+    required int userId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/social/checkAndAwardBadges'),
+      headers: _headers,
+      body: jsonEncode({
+        'userId': userId,
+      }),
     );
-
-    final response = await _client.post(uri, headers: _headers);
     return _handleResponse(response);
   }
 
+  /// Get all available badges
   Future<List<dynamic>> getAllBadges() async {
     final response = await _client.post(
       Uri.parse('$baseUrl/social/getAllBadges'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({}),
     );
     return _handleResponse(response);
   }
 
+  /// Create a new badge (admin function)
   Future<Map<String, dynamic>> createBadge({
     required String name,
     required String description,
-    required String icon,
+    required String iconUrl,
     required String criteria,
   }) async {
-    final uri = Uri.parse('$baseUrl/social/createBadge').replace(
-      queryParameters: {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/social/createBadge'),
+      headers: _headers,
+      body: jsonEncode({
         'name': name,
         'description': description,
-        'icon': icon,
+        'iconUrl': iconUrl,
         'criteria': criteria,
-      },
+      }),
     );
-
-    final response = await _client.post(uri, headers: _headers);
     return _handleResponse(response);
   }
 
+  /// Get social leaderboard
   Future<List<dynamic>> getSocialLeaderboard({
-    String period = 'week',
+    String period = 'month', // week, month, year, all
     int limit = 10,
   }) async {
-    final uri = Uri.parse('$baseUrl/social/getLeaderboard').replace(
-      queryParameters: {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/social/getLeaderboard'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
         'period': period,
-        'limit': limit.toString(),
-      },
+        'limit': limit,
+      }),
     );
-
-    final response = await _client.post(uri);
     return _handleResponse(response);
   }
 
-  // Greeting endpoint (for testing)
-  Future<String> hello({String name = 'World'}) async {
-    final uri = Uri.parse('$baseUrl/greeting/hello').replace(
-      queryParameters: {
-        'name': name,
-      },
-    );
+  // ============================================================================
+  // UTILITY METHODS
+  // ============================================================================
 
-    final response = await _client.post(uri);
-    if (response.statusCode == 200) {
-      return response.body;
-    }
-    throw Exception('Failed to get greeting: ${response.statusCode}');
-  }
-
-  // Response handler
+  /// Handle HTTP response and parse JSON
   dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) {
@@ -555,7 +644,7 @@ class ApiClient {
         return response.body;
       }
     } else if (response.statusCode == 401) {
-      // Token expired, try to refresh
+      // Token expired or invalid
       throw AuthException('Authentication failed', response.statusCode);
     } else {
       throw ApiException(
@@ -565,11 +654,13 @@ class ApiClient {
     }
   }
 
+  /// Dispose of the HTTP client
   void dispose() {
     _client.close();
   }
 }
 
+/// API Exception
 class ApiException implements Exception {
   final String message;
   final int statusCode;
@@ -580,6 +671,7 @@ class ApiException implements Exception {
   String toString() => 'ApiException: $message (Status: $statusCode)';
 }
 
+/// Authentication Exception
 class AuthException extends ApiException {
-  AuthException(super.message, super.statusCode);
+  AuthException(String message, int statusCode) : super(message, statusCode);
 }

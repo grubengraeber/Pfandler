@@ -125,7 +125,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final response = await _apiClient.registerWithEmail(
         email: email,
         password: password,
-        name: name.isEmpty ? email.split('@').first : name,
       );
 
       // Handle successful registration
@@ -270,7 +269,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       await _apiClient.linkDevice(
         deviceId: deviceId,
-        deviceToken: deviceToken,
+        deviceName: deviceToken, // Using token as name for now
       );
 
       debugPrint('Device linked successfully');

@@ -26,17 +26,11 @@ class StatsService {
       // Set auth token for API client
       _apiClient.setAuthToken(authToken);
 
-      // Note: The API expects period parameter, not date range
-      // Calculate period based on date range
-      final duration = endDate.difference(startDate);
-      String period = 'week';
-      if (duration.inDays > 60) {
-        period = 'year';
-      } else if (duration.inDays > 14) {
-        period = 'month';
-      }
-
-      final response = await _apiClient.getTotals(period: period);
+      // The new API expects date range, not period
+      final response = await _apiClient.getTotals(
+        startDate: startDate,
+        endDate: endDate,
+      );
       return response;
     } catch (e) {
       debugPrint('Error getting totals: $e');
@@ -64,8 +58,9 @@ class StatsService {
       _apiClient.setAuthToken(authToken);
 
       final response = await _apiClient.getBreakdown(
-        by: breakdownBy,
-        limit: 10,
+        breakdownBy: breakdownBy,
+        startDate: startDate,
+        endDate: endDate,
       );
       return response;
     } catch (e) {
@@ -88,8 +83,8 @@ class StatsService {
       _apiClient.setAuthToken(authToken);
 
       final csv = await _apiClient.exportCSV(
-        startDate: startDate.toIso8601String().split('T')[0],
-        endDate: endDate.toIso8601String().split('T')[0],
+        startDate: startDate,
+        endDate: endDate,
       );
       return csv;
     } catch (e) {
