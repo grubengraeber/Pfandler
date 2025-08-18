@@ -444,29 +444,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
           ),
-          
-          // Floating action button for current location
-          Positioned(
-            bottom: AppSpacing.xl,
-            right: AppSpacing.lg,
-            child: FloatingActionButton(
-              onPressed: _isLoadingLocation
-                  ? null
-                  : () => _getCurrentLocation(moveMap: true),
-              backgroundColor: theme.colorScheme.primary,
-              child: _isLoadingLocation
-                  ? const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    )
-                  : Icon(
-                      userLocation != null
-                          ? CupertinoIcons.location_fill
-                          : CupertinoIcons.location,
-                      color: Colors.white,
-                    ),
-            ),
-          ),
         ],
       ),
     );
