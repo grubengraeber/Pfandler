@@ -83,12 +83,29 @@ class ApiClient {
 
   /// Get current authenticated user information
   Future<Map<String, dynamic>> getCurrentUser() async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/auth/getCurrentUser'),
-      headers: _headers,
-      body: jsonEncode({}),
-    );
-    return _handleResponse(response);
+    // Backend expects token as query parameter for this endpoint
+    if (_authToken != null) {
+      final uri = Uri.parse('$baseUrl/auth/getCurrentUser').replace(
+        queryParameters: {
+          'token': _authToken!,
+        },
+      );
+      
+      final response = await _client.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode({}),
+      );
+      return _handleResponse(response);
+    } else {
+      // If no token, send without query parameter (will fail with proper error)
+      final response = await _client.post(
+        Uri.parse('$baseUrl/auth/getCurrentUser'),
+        headers: _headers,
+        body: jsonEncode({}),
+      );
+      return _handleResponse(response);
+    }
   }
 
   /// Link a device to the user account
