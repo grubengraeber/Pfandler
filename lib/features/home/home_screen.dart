@@ -259,6 +259,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             children: [
               TileLayer(
+                key: ValueKey(_getMapTileUrl(context)), // Force rebuild on theme change
                 urlTemplate: _getMapTileUrl(context),
                 subdomains: const ['a', 'b', 'c', 'd'],
                 additionalOptions: const {
@@ -267,6 +268,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 userAgentPackageName: 'com.pfandler.app',
                 maxZoom: 19,
                 retinaMode: true,
+                keepBuffer: 0, // Don't keep tiles in buffer when panning
               ),
               
               // User location marker
