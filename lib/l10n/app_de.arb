@@ -264,5 +264,9 @@
   "vibration": "Vibration",
   "vibrationDescription": "Bei erfolgreichem Scan vibrieren",
   "unknown": "Unbekannt",
-  "weekAbbr": "W"
+  "weekAbbr": "W",
+  "errorLoadingDepositData": "Fehler beim Laden der Pfanddaten",
+  "errorLoadingChartData": "Fehler beim Laden der Diagrammdaten",
+  "errorLoadingStats": "Fehler beim Laden der Statistiken",
+  "failedToCaptureScreenshot": "Screenshot konnte nicht erstellt werden"
 }

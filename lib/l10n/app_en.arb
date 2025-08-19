@@ -272,5 +272,9 @@
   "vibrationDescription": "Vibrate on successful scan",
   "totalValue": "Total Value",
   "unknown": "Unknown",
-  "weekAbbr": "W"
+  "weekAbbr": "W",
+  "errorLoadingDepositData": "Error loading deposit data",
+  "errorLoadingChartData": "Error loading chart data", 
+  "errorLoadingStats": "Error loading stats",
+  "failedToCaptureScreenshot": "Failed to capture screenshot"
 }

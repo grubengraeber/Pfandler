@@ -77,7 +77,7 @@ final bottleStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   } catch (e) {
     // Fall back to local sync data if server request fails
     final bottles = await ref.read(bottlesProvider.future);
-    
+
     if (bottles.isEmpty) {
       return {
         'totalBottles': 0,
@@ -87,15 +87,14 @@ final bottleStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
       };
     }
 
-    final totalValue = bottles.fold<double>(
-      0, (sum, bottle) => sum + bottle.depositAmount
-    );
+    final totalValue =
+        bottles.fold<double>(0, (sum, bottle) => sum + bottle.depositAmount);
 
     // Calculate average per day
-    final oldestBottle = bottles.reduce((a, b) => 
-      a.scannedAt.isBefore(b.scannedAt) ? a : b
-    );
-    final daysSinceFirst = DateTime.now().difference(oldestBottle.scannedAt).inDays + 1;
+    final oldestBottle =
+        bottles.reduce((a, b) => a.scannedAt.isBefore(b.scannedAt) ? a : b);
+    final daysSinceFirst =
+        DateTime.now().difference(oldestBottle.scannedAt).inDays + 1;
     final avgPerDay = bottles.length / daysSinceFirst;
 
     // Find most common type
@@ -105,9 +104,8 @@ final bottleStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
     }
     String mostCommonType = 'Unknown';
     if (typeCount.isNotEmpty) {
-      mostCommonType = typeCount.entries
-          .reduce((a, b) => a.value > b.value ? a : b)
-          .key;
+      mostCommonType =
+          typeCount.entries.reduce((a, b) => a.value > b.value ? a : b).key;
     }
 
     return {
@@ -123,14 +121,14 @@ final bottleStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 final chartDataProvider = FutureProvider<List<FlSpot>>((ref) async {
   final period = ref.watch(analyticsPeriodProvider);
   final authState = ref.read(authProvider);
-  
+
   if (!authState.isAuthenticated) {
     return [];
   }
 
   // Generate appropriate date range based on period
   int dataPoints;
-  
+
   switch (period) {
     case AnalyticsPeriod.daily:
       dataPoints = 7;
@@ -152,15 +150,15 @@ final chartDataProvider = FutureProvider<List<FlSpot>>((ref) async {
     if (bottles.isEmpty) {
       return List.generate(dataPoints, (index) => FlSpot(index.toDouble(), 0));
     }
-    
+
     // Group bottles by time period
     final now = DateTime.now();
     final counts = List.filled(dataPoints, 0);
-    
+
     for (final bottle in bottles) {
       final daysDiff = now.difference(bottle.scannedAt).inDays;
       int index = -1;
-      
+
       switch (period) {
         case AnalyticsPeriod.daily:
           if (daysDiff < 7) {
@@ -186,12 +184,12 @@ final chartDataProvider = FutureProvider<List<FlSpot>>((ref) async {
           }
           break;
       }
-      
+
       if (index >= 0 && index < dataPoints) {
         counts[index]++;
       }
     }
-    
+
     return List.generate(dataPoints, (index) {
       return FlSpot(index.toDouble(), counts[index].toDouble());
     });
@@ -210,6 +208,7 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   int _selectedDepositTypeIndex = -1;
+  int _selectedBottleTypeIndex = -1;
   final ScreenshotController _screenshotController = ScreenshotController();
   bool _isSharing = false;
 
@@ -229,7 +228,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         ),
         actions: [
           IconButton(
-            icon: _isSharing 
+            icon: _isSharing
                 ? const SizedBox(
                     width: 20,
                     height: 20,
@@ -274,7 +273,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                       ),
                     ),
                   ),
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (error, stack) => Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -286,7 +286,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                         ),
                         const SizedBox(height: AppSpacing.md),
                         Text(
-                          'Error loading deposit data',
+                          l10n?.translate('errorLoadingDepositData') ?? 'Error loading deposit data',
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ],
@@ -295,17 +295,17 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 ),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) => Center(
-                  child: Text('Error loading deposit data: $error'),
+                  child: Text('${AppLocalizations.of(context)?.translate('errorLoadingDepositData') ?? 'Error loading deposit data'}: $error'),
                 ),
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) => Center(
-                child: Text('Error loading chart data: $error'),
+                child: Text('${AppLocalizations.of(context)?.translate('errorLoadingChartData') ?? 'Error loading chart data'}: $error'),
               ),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stack) => Center(
-              child: Text('Error loading stats: $error'),
+              child: Text('${AppLocalizations.of(context)?.translate('errorLoadingStats') ?? 'Error loading stats'}: $error'),
             ),
           );
         },
@@ -319,18 +319,20 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     });
 
     final l10n = AppLocalizations.of(context);
-    final shareText = l10n?.translate('shareAnalytics') ?? 'Check out my Pfandler bottle return analytics!';
+    final shareText = l10n?.translate('shareAnalytics') ??
+        'Check out my Pfandler bottle return analytics!';
 
     try {
       // Capture the screenshot
       final image = await _screenshotController.capture();
       if (image == null) {
-        throw Exception('Failed to capture screenshot');
+        throw Exception(l10n?.translate('failedToCaptureScreenshot') ?? 'Failed to capture screenshot');
       }
 
       // Save the image to a temporary file
       final tempDir = await getTemporaryDirectory();
-      final fileName = 'pfandler_analytics_${DateTime.now().millisecondsSinceEpoch}.png';
+      final fileName =
+          'pfandler_analytics_${DateTime.now().millisecondsSinceEpoch}.png';
       final file = File(path.join(tempDir.path, fileName));
       await file.writeAsBytes(image);
 
@@ -348,7 +350,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         }
       });
     } catch (e) {
-      final failedMessage = l10n?.translate('failedToShare') ?? 'Failed to share analytics';
+      final failedMessage =
+          l10n?.translate('failedToShare') ?? 'Failed to share analytics';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -412,7 +415,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               child: _buildStatCard(
                 context,
                 title: l10n?.translate('mostCommon') ?? 'Most Common',
-                value: stats['mostCommonType'] == 'Unknown' 
+                value: stats['mostCommonType'] == 'Unknown'
                     ? (l10n?.translate('unknown') ?? 'Unknown')
                     : stats['mostCommonType'],
                 icon: CupertinoIcons.star_fill,
@@ -592,9 +595,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   minX: 0,
                   maxX: chartData.length - 1,
                   minY: 0,
-                  maxY: chartData.isEmpty 
-                      ? 10 
-                      : chartData.map((e) => e.y).reduce((a, b) => a > b ? a : b) * 1.2,
+                  maxY: chartData.isEmpty
+                      ? 10
+                      : chartData
+                              .map((e) => e.y)
+                              .reduce((a, b) => a > b ? a : b) *
+                          1.2,
                   lineBarsData: [
                     LineChartBarData(
                       spots: chartData,
@@ -653,18 +659,21 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     }
   }
 
-  String _getBottomTitle(double value, AnalyticsPeriod period, AppLocalizations? l10n) {
+  String _getBottomTitle(
+      double value, AnalyticsPeriod period, AppLocalizations? l10n) {
     switch (period) {
       case AnalyticsPeriod.daily:
-        final days = l10n != null ? [
-          l10n.translate('mon'),
-          l10n.translate('tue'),
-          l10n.translate('wed'),
-          l10n.translate('thu'),
-          l10n.translate('fri'),
-          l10n.translate('sat'),
-          l10n.translate('sun'),
-        ] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        final days = l10n != null
+            ? [
+                l10n.translate('mon'),
+                l10n.translate('tue'),
+                l10n.translate('wed'),
+                l10n.translate('thu'),
+                l10n.translate('fri'),
+                l10n.translate('sat'),
+                l10n.translate('sun'),
+              ]
+            : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         return value.toInt() < days.length ? days[value.toInt()] : '';
       case AnalyticsPeriod.weekly:
         final weekAbbr = l10n?.translate('weekAbbr') ?? 'W';
@@ -672,33 +681,35 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       case AnalyticsPeriod.monthly:
         return '${value.toInt() + 1}';
       case AnalyticsPeriod.yearly:
-        final months = l10n != null ? [
-          l10n.translate('jan'),
-          l10n.translate('feb'),
-          l10n.translate('mar'),
-          l10n.translate('apr'),
-          l10n.translate('mayShort'),
-          l10n.translate('jun'),
-          l10n.translate('jul'),
-          l10n.translate('aug'),
-          l10n.translate('sep'),
-          l10n.translate('oct'),
-          l10n.translate('nov'),
-          l10n.translate('dec'),
-        ] : [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec'
-        ];
+        final months = l10n != null
+            ? [
+                l10n.translate('jan'),
+                l10n.translate('feb'),
+                l10n.translate('mar'),
+                l10n.translate('apr'),
+                l10n.translate('mayShort'),
+                l10n.translate('jun'),
+                l10n.translate('jul'),
+                l10n.translate('aug'),
+                l10n.translate('sep'),
+                l10n.translate('oct'),
+                l10n.translate('nov'),
+                l10n.translate('dec'),
+              ]
+            : [
+                'Jan',
+                'Feb',
+                'Mar',
+                'Apr',
+                'May',
+                'Jun',
+                'Jul',
+                'Aug',
+                'Sep',
+                'Oct',
+                'Nov',
+                'Dec'
+              ];
         return value.toInt() < months.length ? months[value.toInt()] : '';
     }
   }
@@ -826,6 +837,42 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
 
+    // Extract bottle type data from pie sections for legend
+    final bottleTypeData = pieData.map((section) {
+      // Extract the label from badgeWidget (where we stored the bottle type name)
+      String label = '';
+      if (section.badgeWidget != null && section.badgeWidget is Text) {
+        final textWidget = section.badgeWidget as Text;
+        label = textWidget.data ?? '';
+      }
+
+      return DepositTypeData(
+        label: label.isEmpty ? (l10n?.translate('unknown') ?? 'Unknown') : label,
+        value: section.value,
+        color: section.color,
+        percentage: section.title,
+      );
+    }).toList();
+
+    // Convert to PieChartSectionData with selection state
+    final pieChartSections = pieData.asMap().entries.map((entry) {
+      final index = entry.key;
+      final data = entry.value;
+      final isSelected = _selectedBottleTypeIndex == index;
+
+      return PieChartSectionData(
+        color: data.color,
+        value: data.value,
+        title: data.title,
+        radius: isSelected ? 70 : 60,
+        titleStyle: TextStyle(
+          fontSize: isSelected ? 14 : 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      );
+    }).toList();
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -845,12 +892,74 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 width: 200,
                 child: PieChart(
                   PieChartData(
-                    sections: pieData,
+                    sections: pieChartSections,
                     centerSpaceRadius: 50,
                     sectionsSpace: 2,
+                    pieTouchData: PieTouchData(
+                      touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                        setState(() {
+                          if (!event.isInterestedForInteractions ||
+                              pieTouchResponse == null ||
+                              pieTouchResponse.touchedSection == null) {
+                            _selectedBottleTypeIndex = -1;
+                            return;
+                          }
+                          _selectedBottleTypeIndex = pieTouchResponse
+                              .touchedSection!.touchedSectionIndex;
+                        });
+                      },
+                    ),
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (bottleTypeData.isNotEmpty)
+                      _buildClickableBottleTypeLegendItem(
+                        context,
+                        bottleTypeData[0],
+                        0,
+                        _selectedBottleTypeIndex == 0,
+                      ),
+                    if (bottleTypeData.length > 1) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      _buildClickableBottleTypeLegendItem(
+                        context,
+                        bottleTypeData[1],
+                        1,
+                        _selectedBottleTypeIndex == 1,
+                      ),
+                    ],
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (bottleTypeData.length > 2)
+                      _buildClickableBottleTypeLegendItem(
+                        context,
+                        bottleTypeData[2],
+                        2,
+                        _selectedBottleTypeIndex == 2,
+                      ),
+                    if (bottleTypeData.length > 3) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      _buildClickableBottleTypeLegendItem(
+                        context,
+                        bottleTypeData[3],
+                        3,
+                        _selectedBottleTypeIndex == 3,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -880,9 +989,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               ? data.color.withValues(alpha: 0.1)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.xs),
-          border: isSelected
-              ? Border.all(color: data.color, width: 2)
-              : null,
+          border: isSelected ? Border.all(color: data.color, width: 2) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -897,8 +1004,70 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             ),
             const SizedBox(width: AppSpacing.xs),
             Text(
-              data.label == 'No Data' 
-                  ? (AppLocalizations.of(context)?.translate('noData') ?? 'No Data')
+              data.label == 'No Data'
+                  ? (AppLocalizations.of(context)?.translate('noData') ??
+                      'No Data')
+                  : data.label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : null,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              data.percentage,
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).textTheme.bodySmall?.color,
+                fontWeight: isSelected ? FontWeight.bold : null,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClickableBottleTypeLegendItem(
+    BuildContext context,
+    DepositTypeData data,
+    int index,
+    bool isSelected,
+  ) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedBottleTypeIndex = isSelected ? -1 : index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? data.color.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppSpacing.xs),
+          border: isSelected ? Border.all(color: data.color, width: 2) : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: data.color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              data.label == 'No Data'
+                  ? (AppLocalizations.of(context)?.translate('noData') ??
+                      'No Data')
                   : data.label,
               style: TextStyle(
                 fontSize: 12,
@@ -937,9 +1106,10 @@ class DepositTypeData {
 }
 
 // Providers for pie chart data
-final depositPieDataProvider = FutureProvider<List<DepositTypeData>>((ref) async {
+final depositPieDataProvider =
+    FutureProvider<List<DepositTypeData>>((ref) async {
   final bottles = await ref.read(bottlesProvider.future);
-  
+
   if (bottles.isEmpty) {
     return [
       DepositTypeData(
@@ -954,7 +1124,7 @@ final depositPieDataProvider = FutureProvider<List<DepositTypeData>>((ref) async
   // Group by deposit amount
   final depositGroups = <double, int>{};
   for (final bottle in bottles) {
-    depositGroups[bottle.depositAmount] = 
+    depositGroups[bottle.depositAmount] =
         (depositGroups[bottle.depositAmount] ?? 0) + 1;
   }
 
@@ -968,7 +1138,7 @@ final depositPieDataProvider = FutureProvider<List<DepositTypeData>>((ref) async
 
   final sortedEntries = depositGroups.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
-    
+
   return sortedEntries.take(4).map((entry) {
     final index = depositGroups.keys.toList().indexOf(entry.key);
     return DepositTypeData(
@@ -980,9 +1150,10 @@ final depositPieDataProvider = FutureProvider<List<DepositTypeData>>((ref) async
   }).toList();
 });
 
-final bottleTypePieDataProvider = FutureProvider<List<PieChartSectionData>>((ref) async {
+final bottleTypePieDataProvider =
+    FutureProvider<List<PieChartSectionData>>((ref) async {
   final bottles = await ref.read(bottlesProvider.future);
-  
+
   if (bottles.isEmpty) {
     return [
       PieChartSectionData(
@@ -995,6 +1166,7 @@ final bottleTypePieDataProvider = FutureProvider<List<PieChartSectionData>>((ref
           fontWeight: FontWeight.bold,
           color: Colors.white,
         ),
+        badgeWidget: const Text('No Data', style: TextStyle(fontSize: 0)),
       ),
     ];
   }
@@ -1002,8 +1174,7 @@ final bottleTypePieDataProvider = FutureProvider<List<PieChartSectionData>>((ref
   // Group by bottle type
   final typeGroups = <String, int>{};
   for (final bottle in bottles) {
-    typeGroups[bottle.typeLabel] = 
-        (typeGroups[bottle.typeLabel] ?? 0) + 1;
+    typeGroups[bottle.typeLabel] = (typeGroups[bottle.typeLabel] ?? 0) + 1;
   }
 
   final total = bottles.length;
@@ -1016,13 +1187,14 @@ final bottleTypePieDataProvider = FutureProvider<List<PieChartSectionData>>((ref
 
   final sortedEntries = typeGroups.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
-    
-  return sortedEntries.take(4).map((entry) {
-    final index = typeGroups.keys.toList().indexOf(entry.key);
-    final percentage = ((entry.value / total) * 100).toStringAsFixed(0);
+
+  return sortedEntries.take(4).toList().asMap().entries.map((entry) {
+    final index = entry.key;
+    final mapEntry = entry.value;
+    final percentage = ((mapEntry.value / total) * 100).toStringAsFixed(0);
     return PieChartSectionData(
       color: colors[index % colors.length],
-      value: entry.value.toDouble(),
+      value: mapEntry.value.toDouble(),
       title: '$percentage%',
       radius: 60,
       titleStyle: const TextStyle(
@@ -1030,6 +1202,8 @@ final bottleTypePieDataProvider = FutureProvider<List<PieChartSectionData>>((ref
         fontWeight: FontWeight.bold,
         color: Colors.white,
       ),
+      // Store the bottle type label in badgeWidget (hack to pass extra data)
+      badgeWidget: Text(mapEntry.key, style: const TextStyle(fontSize: 0)),
     );
   }).toList();
 });

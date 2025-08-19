@@ -8,6 +8,11 @@ class ApiClient {
   final http.Client _client;
   String? _authToken;
   String? _refreshToken;
+  
+  // Temporary flag for production server compatibility
+  // Set to true while production server expects query params instead of JSON body
+  // TODO: Remove this once production server is updated to latest Serverpod version
+  static const bool _useQueryParamsWorkaround = true;
 
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
@@ -59,13 +64,13 @@ class ApiClient {
     required String email,
     required String password,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/auth/loginWithEmail'),
+    final response = await _postWithWorkaround(
+      '/auth/loginWithEmail',
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
+      body: {
         'email': email,
         'password': password,
-      }),
+      },
     );
     
     final data = _handleResponse(response);
@@ -83,29 +88,15 @@ class ApiClient {
 
   /// Get current authenticated user information
   Future<Map<String, dynamic>> getCurrentUser() async {
-    // Backend expects token as query parameter for this endpoint
-    if (_authToken != null) {
-      final uri = Uri.parse('$baseUrl/auth/getCurrentUser').replace(
-        queryParameters: {
-          'token': _authToken!,
-        },
-      );
-      
-      final response = await _client.post(
-        uri,
-        headers: _headers,
-        body: jsonEncode({}),
-      );
-      return _handleResponse(response);
-    } else {
-      // If no token, send without query parameter (will fail with proper error)
-      final response = await _client.post(
-        Uri.parse('$baseUrl/auth/getCurrentUser'),
-        headers: _headers,
-        body: jsonEncode({}),
-      );
-      return _handleResponse(response);
-    }
+    // Use workaround for production server compatibility
+    final response = await _postWithWorkaround(
+      '/auth/getCurrentUser',
+      headers: {'Content-Type': 'application/json'},
+      body: {
+        'token': _authToken ?? '',
+      },
+    );
+    return _handleResponse(response);
   }
 
   /// Link a device to the user account
@@ -113,12 +104,69 @@ class ApiClient {
     required String deviceId,
     required String deviceName,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/auth/linkDevice'),
+    final response = await _postWithWorkaround(
+      '/auth/linkDevice',
       headers: _headers,
-      body: jsonEncode({
+      body: {
+        'token': _authToken ?? '',
         'deviceId': deviceId,
         'deviceName': deviceName,
+      },
+    );
+    return _handleResponse(response);
+  }
+
+  /// Refresh the authentication token
+  Future<Map<String, dynamic>> refreshToken() async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/auth/refreshToken'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'request': {
+          'refreshToken': _refreshToken ?? '',
+        },
+      }),
+    );
+    
+    final data = _handleResponse(response);
+    
+    // Update tokens if refresh successful
+    if (data['token'] != null) {
+      _authToken = data['token'];
+    }
+    if (data['refreshToken'] != null) {
+      _refreshToken = data['refreshToken'];
+    }
+    
+    return data;
+  }
+
+  /// Logout the current user
+  Future<void> logout() async {
+    final response = await _postWithWorkaround(
+      '/auth/logout',
+      headers: {'Content-Type': 'application/json'},
+      body: {
+        'token': _authToken ?? '',
+      },
+    );
+    _handleResponse(response);
+    clearTokens();
+  }
+
+  /// Change user password
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/auth/changePassword'),
+      headers: _headers,
+      body: jsonEncode({
+        'request': {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
       }),
     );
     return _handleResponse(response);
@@ -132,12 +180,12 @@ class ApiClient {
   Future<Map<String, dynamic>> getProductByBarcode({
     required String barcode,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/catalog/getProductByBarcode'),
+    final response = await _postWithWorkaround(
+      '/catalog/getProductByBarcode',
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
+      body: {
         'barcode': barcode,
-      }),
+      },
     );
     return _handleResponse(response);
   }
@@ -204,12 +252,12 @@ class ApiClient {
   Future<Map<String, dynamic>> lookupProductExternal({
     required String barcode,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/catalog/lookupProductExternal'),
+    final response = await _postWithWorkaround(
+      '/catalog/lookupProductExternal',
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
+      body: {
         'barcode': barcode,
-      }),
+      },
     );
     return _handleResponse(response);
   }
@@ -328,22 +376,22 @@ class ApiClient {
     String? type,
     double? maxDistance,
   }) async {
-    final filters = <String, dynamic>{};
+    final body = <String, dynamic>{
+      'lat': lat,
+      'lng': lng,
+    };
+    
     if (type != null) {
-      filters['type'] = type;
+      body['type'] = type;
     }
     if (maxDistance != null) {
-      filters['maxDistance'] = maxDistance;
+      body['maxDistance'] = maxDistance;
     }
 
-    final response = await _client.post(
-      Uri.parse('$baseUrl/location/nearby'),
+    final response = await _postWithWorkaround(
+      '/location/nearby',
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'lat': lat,
-        'lng': lng,
-        'filters': filters,
-      }),
+      body: body,
     );
     return _handleResponse(response);
   }
@@ -647,6 +695,53 @@ class ApiClient {
   // ============================================================================
   // UTILITY METHODS
   // ============================================================================
+
+  /// Helper method to make POST request with workaround for production server
+  /// TODO: Remove this once production server is updated
+  Future<http.Response> _postWithWorkaround(
+    String endpoint, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? body,
+    bool useWorkaround = true,
+  }) async {
+    if (_useQueryParamsWorkaround && useWorkaround && body != null) {
+      // For certain endpoints, convert body params to query params
+      // This is a temporary workaround for production server
+      final needsQueryParams = [
+        '/auth/getCurrentUser',
+        '/auth/loginWithEmail',
+        '/auth/linkDevice',
+        '/auth/logout',
+        '/catalog/getProductByBarcode',
+        '/catalog/lookupProductExternal',
+        '/location/nearby',
+      ].any((path) => endpoint.contains(path));
+      
+      if (needsQueryParams) {
+        // Extract simple string/number parameters for query string
+        final queryParams = <String, String>{};
+        body.forEach((key, value) {
+          if (value != null && (value is String || value is num || value is bool)) {
+            queryParams[key] = value.toString();
+          }
+        });
+        
+        final uri = Uri.parse('$baseUrl$endpoint').replace(queryParameters: queryParams);
+        return await _client.post(
+          uri,
+          headers: headers,
+          body: jsonEncode(body),
+        );
+      }
+    }
+    
+    // Normal POST with JSON body
+    return await _client.post(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+      body: jsonEncode(body),
+    );
+  }
 
   /// Handle HTTP response and parse JSON
   dynamic _handleResponse(http.Response response) {

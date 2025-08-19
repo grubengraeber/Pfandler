@@ -96,22 +96,41 @@ class LocationService {
     required double lng,
     double maxDistanceKm = 10.0,
   }) async {
+    print('🔍 DEBUG: getNearbyLocations called - lat: $lat, lng: $lng, maxDistance: $maxDistanceKm km');
+    
     final authToken = ref.read(authTokenProvider);
 
     // Set auth token if available
     if (authToken != null) {
       _apiClient.setAuthToken(authToken);
+      print('🔍 DEBUG: Auth token set for API request');
+    } else {
+      print('🔍 DEBUG: No auth token available');
     }
 
     try {
+      print('🔍 DEBUG: Calling API findNearbyLocations...');
       final locations = await _apiClient.findNearbyLocations(
         lat: lat,
         lng: lng,
         maxDistance: maxDistanceKm,
       );
+      
+      print('🔍 DEBUG: API returned ${locations.length} raw locations');
+      final stores = _parseStores(locations);
+      print('🔍 DEBUG: Parsed ${stores.length} stores successfully');
+      
+      // Log first few store names for debugging
+      if (stores.isNotEmpty) {
+        final sampleStores = stores.take(3).map((s) => '${s.name} (${s.chain.name})').join(', ');
+        print('🔍 DEBUG: Sample stores: $sampleStores');
+      }
 
-      return _parseStores(locations);
+      return stores;
     } catch (e) {
+      print('🔍 DEBUG: Error calling findNearbyLocations: $e');
+      print('🔍 DEBUG: Falling back to getAustrianDepositLocations...');
+      
       // Fallback to Austrian locations
       return getAustrianDepositLocations(
         lat: lat,
@@ -123,16 +142,22 @@ class LocationService {
 
   // Search locations by query - implements client-side filtering
   Future<List<Store>> searchLocations(String query) async {
+    print('🔍 DEBUG: searchLocations called with query: "$query"');
+    
     // Since the backend doesn't have a search endpoint, do client-side filtering
     try {
       // First try to get all nearby locations from a large radius
+      print('🔍 DEBUG: Fetching all stores from Austria center for search...');
       final allStores = await getNearbyLocations(
         lat: 47.6965, // Austria center
         lng: 13.3457,
         maxDistanceKm: 500.0, // Cover most of Austria
       );
+      
+      print('🔍 DEBUG: Got ${allStores.length} total stores for filtering');
 
       if (query.isEmpty) {
+        print('🔍 DEBUG: Query is empty, returning all stores');
         return allStores;
       }
 
@@ -144,9 +169,15 @@ class LocationService {
             store.city.toLowerCase().contains(lowerQuery) ||
             store.chain.name.toLowerCase().contains(lowerQuery);
       }).toList();
+      
+      print('🔍 DEBUG: Filtered to ${filteredStores.length} stores matching "$query"');
+      if (filteredStores.isNotEmpty) {
+        print('🔍 DEBUG: First match: ${filteredStores.first.name} at ${filteredStores.first.address}');
+      }
 
       return filteredStores;
     } catch (e) {
+      print('🔍 DEBUG: Error in searchLocations: $e');
       return [];
     }
   }

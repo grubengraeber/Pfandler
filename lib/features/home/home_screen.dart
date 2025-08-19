@@ -166,6 +166,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final storesAsync = isSearching && searchQuery.isNotEmpty
         ? ref.watch(searchStoresProvider(searchQuery))
         : ref.watch(nearbyStoresProvider(mapCenter));
+    
+    // Debug logging for store provider selection
+    if (isSearching && searchQuery.isNotEmpty) {
+      print('🗺️ DEBUG: Using search provider with query: "$searchQuery"');
+    } else {
+      print('🗺️ DEBUG: Using nearby provider at: ${mapCenter.latitude}, ${mapCenter.longitude}');
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -177,8 +184,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       l10n?.translate('searchStores') ?? 'Search stores...',
                   border: InputBorder.none,
                 ),
-                onChanged: (value) {
+                onChanged: (value) async {
                   ref.read(searchQueryProvider.notifier).state = value;
+                  
+                  // If search query is not empty, search and navigate to first result
+                  if (value.isNotEmpty) {
+                    try {
+                      final locationService = ref.read(locationServiceProvider);
+                      final searchResults = await locationService.searchLocations(value);
+                      
+                      if (searchResults.isNotEmpty && mounted) {
+                        final firstResult = searchResults.first;
+                        
+                        // Navigate map to first search result
+                        final newCenter = firstResult.location;
+                        
+                        // Update map center
+                        ref.read(mapCenterProvider.notifier).state = newCenter;
+                        
+                        // Animate map to the location with appropriate zoom
+                        _mapController.move(newCenter, 15.0);
+                        _currentZoom = 15.0;
+                        
+                        // Select the first store to show its details
+                        ref.read(selectedStoreProvider.notifier).state = firstResult;
+                      }
+                    } catch (e) {
+                      // Handle search errors silently
+                      debugPrint('Search error: $e');
+                    }
+                  }
                 },
                 onSubmitted: (_) {
                   ref.read(isSearchingProvider.notifier).state = false;
@@ -253,7 +288,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onPositionChanged: (position, hasGesture) {
                 // Update map center and zoom when user moves the map
                 if (hasGesture && position.center != null) {
-                  ref.read(mapCenterProvider.notifier).state = position.center!;
+                  final newCenter = position.center!;
+                  print('🗺️ DEBUG: Map moved to: ${newCenter.latitude}, ${newCenter.longitude}, zoom: ${position.zoom}');
+                  ref.read(mapCenterProvider.notifier).state = newCenter;
                   _currentZoom = position.zoom ?? _currentZoom;
                 }
               },
@@ -779,17 +816,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 // Providers for stores
 final nearbyStoresProvider =
     FutureProvider.family<List<Store>, LatLng>((ref, location) async {
+  print('🗺️ DEBUG: nearbyStoresProvider called for location: ${location.latitude}, ${location.longitude}');
   final locationService = ref.read(locationServiceProvider);
-  return locationService.getNearbyLocations(
+  final stores = await locationService.getNearbyLocations(
     lat: location.latitude,
     lng: location.longitude,
   );
+  print('🗺️ DEBUG: nearbyStoresProvider returning ${stores.length} stores');
+  return stores;
 });
 
 final searchStoresProvider =
     FutureProvider.family<List<Store>, String>((ref, query) async {
+  print('🗺️ DEBUG: searchStoresProvider called with query: "$query"');
   final locationService = ref.read(locationServiceProvider);
-  return locationService.searchLocations(query);
+  final results = await locationService.searchLocations(query);
+  print('🗺️ DEBUG: searchStoresProvider returning ${results.length} results');
+  return results;
 });
 
 final locationServiceProvider = Provider<LocationService>((ref) {

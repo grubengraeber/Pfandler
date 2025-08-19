@@ -345,11 +345,11 @@ class BottlesScreen extends ConsumerWidget {
                     _buildDetailRow('Volume', bottle.formattedVolume, theme),
                     _buildDetailRow('Deposit', bottle.formattedDeposit, theme),
                     _buildDetailRow('Scanned', 
-                      '\${bottle.scannedAt.day}/\${bottle.scannedAt.month}/\${bottle.scannedAt.year}', theme),
+                      '${bottle.scannedAt.day.toString().padLeft(2, '0')}.${bottle.scannedAt.month.toString().padLeft(2, '0')}.${bottle.scannedAt.year}', theme),
                     
                     if (bottle.isReturned && bottle.returnedAt != null)
                       _buildDetailRow('Returned', 
-                        '\${bottle.returnedAt!.day}/\${bottle.returnedAt!.month}/\${bottle.returnedAt!.year}', theme),
+                        '${bottle.returnedAt!.day.toString().padLeft(2, '0')}.${bottle.returnedAt!.month.toString().padLeft(2, '0')}.${bottle.returnedAt!.year}', theme),
                   ],
                 ),
               ),
